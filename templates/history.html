@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% set title = "VisionText | History" %}
+
+{% block content %}
+<section class="history">
+  <div class="history-header">
+    <div>
+      <p class="eyebrow">Vision Vault</p>
+      <h2>Saved Scans</h2>
+      <p class="subtitle">Search, filter, and manage your OCR history.</p>
+    </div>
+  </div>
+
+  <form method="get" class="form inline">
+    <input type="text" name="q" placeholder="Search text" value="{{ query }}" />
+    <select name="tag">
+      <option value="">All tags</option>
+      {% for tag in tags %}
+        <option value="{{ tag }}" {% if tag_filter == tag %}selected{% endif %}>{{ tag }}</option>
+      {% endfor %}
+    </select>
+    <button class="button primary" type="submit">Filter</button>
+  </form>
+
+  <div class="card">
+    {% if scans %}
+      <ul class="scan-list">
+        {% for scan in scans %}
+          <li>
+            <div>
+              <strong>{{ scan.intent|capitalize }}</strong>
+              <div class="muted">{{ scan.created_at }} | {{ scan.language|upper }} | {{ scan.confidence_avg }}%</div>
+              <div class="tag-list">
+                {% for tag in scan.tags %}
+                  <span class="tag">{{ tag }}</span>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="button-row">
+              <a class="button ghost small" href="{{ url_for('result', scan_id=scan.id) }}">Open</a>
+              <form method="post" action="{{ url_for('delete_scan', scan_id=scan.id) }}">
+                <button class="button ghost small" type="submit">Delete</button>
+              </form>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">No scans found for the current filter.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

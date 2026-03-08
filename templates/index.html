@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% set title = "VisionText | Home" %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-text">
+    <p class="eyebrow">VisionText OCR Platform</p>
+    <h1>Turn images into clean, shareable text in seconds.</h1>
+    <p class="subtitle">
+      Upload photos, capture with camera, edit the extracted text, export it, and keep a searchable history.
+      Built for students, teams, and anyone who wants instant readability.
+    </p>
+    <div class="hero-actions">
+      <a class="button primary" href="{{ url_for('login') }}">Get Started</a>
+      <a class="button ghost" href="{{ url_for('signup') }}">Create Account</a>
+    </div>
+  </div>
+  <div class="hero-card">
+    <div class="hero-preview">
+      <div class="scan-tile">
+        <div class="scan-title">Notebook OCR</div>
+        <div class="scan-meta">Smart cleanup + summary</div>
+      </div>
+      <div class="scan-output">
+        <p>1. Main idea captured.</p>
+        <p>2. Key points auto-highlighted.</p>
+        <p>3. Exported as PDF + Doc.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="feature-grid">
+  <div class="feature-card">
+    <h3>Multi-image OCR</h3>
+    <p>Upload 5-10 pages at once. We merge them in order with page numbering.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Smart Cleanup</h3>
+    <p>Remove extra spaces, fix line breaks, and beautify paragraphs automatically.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Student Mode</h3>
+    <p>Generate short notes, key points, and practice MCQs from notebooks.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Export Studio</h3>
+    <p>Download TXT, PDF, and DOCX outputs with one tap.</p>
+  </div>
+</section>
+{% endblock %}

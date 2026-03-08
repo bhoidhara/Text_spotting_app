@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% set title = "VisionText | Result" %}
+
+{% block content %}
+<section class="result">
+  <div class="result-header">
+    <div>
+      <p class="eyebrow">OCR Result</p>
+      <h2>Editable Text Output</h2>
+      <p class="subtitle">Review the text, clean it, and export or share.</p>
+    </div>
+    <div class="pill">Intent: {{ scan.intent|capitalize }}</div>
+  </div>
+
+  {% if scan.image_paths %}
+    <div class="card">
+      <h3>Uploaded Images</h3>
+      <div class="image-grid">
+        {% for filename in scan.image_paths %}
+          <img class="preview" src="{{ url_for('uploaded_file', filename=filename) }}" alt="Uploaded image {{ loop.index }}" />
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="grid-two">
+    <div class="card">
+      <h3>Extracted Text</h3>
+      <pre class="text-block">{{ scan.extracted_text }}</pre>
+    </div>
+
+    <div class="card">
+      <h3>Editable Clean Text</h3>
+      <form method="post" action="{{ url_for('save_result', scan_id=scan.id) }}" class="form">
+        <textarea name="cleaned_text" rows="14">{{ scan.cleaned_text }}</textarea>
+        <label>Tags (comma separated)</label>
+        <input type="text" name="tags" placeholder="notes, physics, invoice" value="{{ scan.tags | join(', ') }}" />
+        <div class="button-row">
+          <button class="button primary" type="submit">Save</button>
+          <button class="button ghost" type="button" data-copy-target>Copy</button>
+        </div>
+      </form>
+
+      <div class="confidence">
+        <div>
+          <strong>Confidence:</strong> {{ scan.confidence_avg }}%
+        </div>
+        {% if scan.low_confidence_words %}
+          <div class="low-conf">Low confidence words: {{ scan.low_confidence_words | join(', ') }}</div>
+        {% else %}
+          <div class="muted">No low confidence words flagged.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-two">
+    <div class="card">
+      <h3>Export Studio</h3>
+      <form method="post" action="{{ url_for('export_result', scan_id=scan.id) }}" class="form inline">
+        <select name="export_format">
+          <option value="txt">TXT</option>
+          <option value="pdf">PDF</option>
+          <option value="docx">DOCX</option>
+        </select>
+        <button class="button primary" type="submit">Export</button>
+      </form>
+      <p class="small">Use export to share your cleaned text.</p>
+    </div>
+
+    <div class="card">
+      <h3>Translate + Voice</h3>
+      <form method="post" action="{{ url_for('translate_result', scan_id=scan.id) }}" class="form inline">
+        <select name="target_lang">
+          <option value="en">English</option>
+          <option value="hi">Hindi</option>
+          <option value="gu">Gujarati</option>
+        </select>
+        <button class="button ghost" type="submit">Translate</button>
+      </form>
+      <form method="post" action="{{ url_for('tts_result', scan_id=scan.id) }}" class="form inline">
+        <button class="button ghost" type="submit">Text to Speech</button>
+      </form>
+      {% if scan.translation %}
+        <div class="translation">
+          <strong>Translation ({{ scan.translation.target | upper }}):</strong>
+          <p>{{ scan.translation.text }}</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="grid-two">
+    <div class="card">
+      <h3>Student Smart Mode</h3>
+      {% if scan.summary %}
+        <p class="subtitle">Summary</p>
+        <p>{{ scan.summary }}</p>
+        <p class="subtitle">Key Points</p>
+        <ul class="simple-list">
+          {% for point in scan.key_points %}
+            <li>{{ point }}</li>
+          {% endfor %}
+        </ul>
+        <p class="subtitle">Practice MCQs</p>
+        <ul class="simple-list">
+          {% for item in scan.mcqs %}
+            <li><strong>Q:</strong> {{ item.q }} <br /><strong>A:</strong> {{ item.a }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Enable Student Smart Mode during upload to generate notes and MCQs.</p>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3>Real-World Actions</h3>
+      <div class="action-grid">
+        {% if actions.emails %}
+          {% for email in actions.emails %}
+            <a class="button ghost" href="mailto:{{ email }}">Email {{ email }}</a>
+          {% endfor %}
+        {% endif %}
+        {% if actions.phones %}
+          {% for phone in actions.phones %}
+            <a class="button ghost" href="tel:{{ phone }}">Call {{ phone }}</a>
+          {% endfor %}
+        {% endif %}
+        {% if actions.urls %}
+          {% for url in actions.urls %}
+            <a class="button ghost" href="{{ url }}" target="_blank" rel="noopener">Open {{ url }}</a>
+          {% endfor %}
+        {% endif %}
+        {% if actions.addresses %}
+          {% for address in actions.addresses %}
+            <a class="button ghost" href="https://maps.google.com/?q={{ address }}" target="_blank" rel="noopener">Map {{ address }}</a>
+          {% endfor %}
+        {% endif %}
+        {% if not actions.emails and not actions.phones and not actions.urls and not actions.addresses %}
+          <p class="muted">No actionable items detected yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Vision Vault</h3>
+    <p class="small">Saved in history with tags, confidence, and export logs.</p>
+    <a class="button ghost" href="{{ url_for('history') }}">Open History</a>
+  </div>
+</section>
+{% endblock %}

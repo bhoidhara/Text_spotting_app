@@ -1,0 +1,44 @@
+import mimetypes
+
+from services.supabase_client import storage_bucket, supabase_storage_client
+
+
+def upload_to_storage(local_path, remote_path):
+    client = supabase_storage_client()
+    if not client:
+        return None
+    bucket = storage_bucket()
+    content_type = mimetypes.guess_type(local_path)[0] or "application/octet-stream"
+    try:
+        with open(local_path, "rb") as handle:
+            payload = handle.read()
+        client.storage.from_(bucket).upload(remote_path, payload, {"content-type": content_type, "upsert": True})
+        return remote_path
+    except Exception:
+        return None
+
+
+def download_from_storage(remote_path):
+    client = supabase_storage_client()
+    if not client:
+        return None, None
+    bucket = storage_bucket()
+    try:
+        data = client.storage.from_(bucket).download(remote_path)
+    except Exception:
+        return None, None
+    content_type = mimetypes.guess_type(remote_path)[0] or "application/octet-stream"
+    return data, content_type
+
+
+def delete_from_storage(paths):
+    if not paths:
+        return
+    client = supabase_storage_client()
+    if not client:
+        return
+    bucket = storage_bucket()
+    try:
+        client.storage.from_(bucket).remove(paths)
+    except Exception:
+        pass
