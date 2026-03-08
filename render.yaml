@@ -20,6 +20,8 @@ services:
         value: "true"
       - key: STORE_LOCAL_UPLOADS
         value: "true"
+      - key: PYTHON_VERSION
+        value: "3.12"
       - key: SECRET_KEY
         sync: false
       - key: TESSERACT_CMD
