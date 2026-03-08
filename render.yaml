@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: text-spotting-app
+    env: python
+    plan: free
+    buildCommand: apt-get update && apt-get install -y tesseract-ocr && pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        sync: false
+      - key: SUPABASE_USE_DB
+        value: "true"
+      - key: SUPABASE_USE_STORAGE
+        value: "true"
+      - key: STORE_LOCAL_UPLOADS
+        value: "true"
+      - key: SECRET_KEY
+        sync: false
+      - key: TESSERACT_CMD
+        sync: false
