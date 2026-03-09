@@ -29,6 +29,7 @@
 
         <div class="checkbox-grid">
           <label><input type="checkbox" name="cleanup" checked /> Smart cleanup</label>
+          <label><input type="checkbox" name="autocorrect" /> Auto-correct (English)</label>
           <label><input type="checkbox" name="detect_intent" checked /> Intent detection</label>
           <label><input type="checkbox" name="student_mode" /> Student smart mode</label>
           <label><input type="checkbox" name="privacy_mode" /> Privacy mode</label>
@@ -36,7 +37,14 @@
 
         <div class="sniper">
           <h4>Sniper Mode (Optional)</h4>
-          <p class="small">Enter crop coordinates if you want OCR from a selected area.</p>
+          <p class="small">Drag-select area on preview or enter crop coordinates manually.</p>
+          <div class="sniper-preview hidden" id="sniper-preview">
+            <div class="sniper-canvas" id="sniper-canvas">
+              <img id="sniper-image" alt="Selected preview" />
+              <div class="sniper-selection" id="sniper-selection"></div>
+            </div>
+            <button class="button ghost small" id="sniper-clear" type="button">Clear selection</button>
+          </div>
           <div class="grid-four">
             <input type="number" name="crop_x" placeholder="X" />
             <input type="number" name="crop_y" placeholder="Y" />

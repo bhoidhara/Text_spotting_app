@@ -19,6 +19,11 @@ try:
 except Exception:
     detect_lang = None
 
+try:
+    from spellchecker import SpellChecker
+except Exception:
+    SpellChecker = None
+
 
 def preprocess_image(image):
     if ImageOps:
@@ -84,6 +89,38 @@ def clean_text(text):
         previous_blank = False
 
     return "\n".join(normalized).strip()
+
+
+def auto_correct_text(text, language="en"):
+    if not text.strip():
+        return text
+    if not language or not str(language).startswith("en"):
+        return text
+    if SpellChecker is None:
+        return text
+
+    spell = SpellChecker()
+
+    def _replace(match):
+        word = match.group(0)
+        lower = word.lower()
+        correction = spell.correction(lower)
+        if not correction or correction == lower:
+            return word
+        try:
+            if spell.word_frequency.frequency(lower) > 0:
+                return word
+            if spell.word_frequency.frequency(correction) == 0:
+                return word
+        except Exception:
+            pass
+        if word.isupper():
+            return correction.upper()
+        if word[0].isupper():
+            return correction.capitalize()
+        return correction
+
+    return re.sub(r"[A-Za-z]{3,}", _replace, text)
 
 
 def detect_intent(text):

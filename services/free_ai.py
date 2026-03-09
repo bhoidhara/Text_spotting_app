@@ -32,8 +32,8 @@ def translate_text(text: str, target_lang: str):
     return translated, detected
 
 
-def synthesize_speech(text: str, language_code: str = "en") -> bytes:
-    tts = gTTS(text=text, lang=language_code)
+def synthesize_speech(text: str, language_code: str = "en", slow: bool = False) -> bytes:
+    tts = gTTS(text=text, lang=language_code, slow=slow)
     buffer = io.BytesIO()
     tts.write_to_fp(buffer)
     buffer.seek(0)

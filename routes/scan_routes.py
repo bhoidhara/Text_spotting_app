@@ -16,7 +16,15 @@ from flask import (
     url_for,
 )
 
-from services.ocr import clean_text, detect_intent, detect_language, extract_actions, ocr_image, student_pack
+from services.ocr import (
+    auto_correct_text,
+    clean_text,
+    detect_intent,
+    detect_language,
+    extract_actions,
+    ocr_image,
+    student_pack,
+)
 from services.scans import delete_scan as delete_scan_record, get_scan, list_scans, log_export, log_translation, upsert_scan
 from services.storage import delete_from_storage, download_from_storage, upload_to_storage
 from services.supabase_client import require_storage_client
@@ -57,6 +65,7 @@ def register_scan_routes(app):
 
         lang = request.form.get("lang", "eng")
         cleanup = request.form.get("cleanup") == "on"
+        autocorrect = request.form.get("autocorrect") == "on"
         detect_intent_flag = request.form.get("detect_intent") == "on"
         student_mode = request.form.get("student_mode") == "on"
         privacy_mode = request.form.get("privacy_mode") == "on"
@@ -145,6 +154,8 @@ def register_scan_routes(app):
         cleaned_text = clean_text(extracted_text) if cleanup else extracted_text
         intent = detect_intent(cleaned_text if detect_intent_flag else extracted_text) if detect_intent_flag else "auto"
         language = detect_language(cleaned_text)
+        if autocorrect:
+            cleaned_text = auto_correct_text(cleaned_text, language)
 
         summary = ""
         key_points = []
@@ -493,10 +504,12 @@ def register_scan_routes(app):
             "gu": "gu",
         }
         language_code = lang_map.get((scan.get("language") or "en")[:2], "en")
+        speed = request.form.get("tts_speed", "normal")
+        slow = speed == "slow"
         try:
             from services.free_ai import synthesize_speech
 
-            audio_bytes = synthesize_speech(text[:4000], language_code=language_code)
+            audio_bytes = synthesize_speech(text[:4000], language_code=language_code, slow=slow)
             audio_name = f"audio_{scan_id}.mp3"
             storage_path = f"audio/{scan.get('user_id')}/{audio_name}"
             temp_path = os.path.join(current_app.config["UPLOAD_FOLDER"], storage_path)

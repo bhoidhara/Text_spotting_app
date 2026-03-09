@@ -9,3 +9,4 @@ python-docx==1.1.2
 gunicorn==21.2.0
 requests==2.32.3
 gTTS==2.5.3
+pyspellchecker==0.7.2
