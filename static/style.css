@@ -360,6 +360,11 @@ body.auth-page .subtitle {
   color: var(--auth-muted);
 }
 
+body.auth-page .auth-card .subtitle {
+  margin-top: 6px;
+  margin-bottom: 18px;
+}
+
 .auth-tabs {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -392,6 +397,10 @@ body.auth-page .auth-card label {
 body.auth-page .auth-divider,
 body.auth-page .helper {
   display: none;
+}
+
+.auth-form {
+  gap: 14px;
 }
 
 .auth-divider {

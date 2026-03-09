@@ -11,15 +11,13 @@
       <a class="auth-tab active" href="{{ url_for('login') }}">Login</a>
       <a class="auth-tab" href="{{ url_for('signup') }}">Sign Up</a>
     </div>
-    <form method="post" class="form">
+    <form method="post" class="form auth-form">
       <label>Email</label>
       <input type="email" name="email" placeholder="you@example.com" required />
       <label>Password</label>
       <input type="password" name="password" placeholder="••••••" required />
       <button class="button primary" type="submit">Login</button>
     </form>
-    <div class="auth-divider">or</div>
-    <a class="button ghost" href="{{ url_for('auth_google') }}">Continue with Google</a>
   </div>
 </section>
 {% endblock %}
