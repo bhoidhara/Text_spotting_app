@@ -1,12 +1,31 @@
 import os
 
-from flask import flash, redirect, render_template, request, session, url_for
+from flask import current_app, flash, redirect, render_template, request, session, url_for
 
 from services.supabase_client import supabase_anon, supabase_service
 from utils.helpers import now_iso
 
 
 def register_auth_routes(app):
+    def _auth_error_message(exc, fallback):
+        message = ""
+        if hasattr(exc, "message"):
+            message = str(exc.message)
+        elif getattr(exc, "args", None):
+            message = str(exc.args[0])
+        else:
+            message = str(exc)
+        lowered = message.lower()
+        if "email not confirmed" in lowered:
+            return "Email not confirmed. Check your inbox or disable email confirmations in Supabase."
+        if "invalid login credentials" in lowered:
+            return "Invalid email or password."
+        if "user already registered" in lowered or "already registered" in lowered:
+            return "User already exists. Please login."
+        if "password" in lowered and "at least" in lowered:
+            return "Password must be at least 6 characters."
+        return fallback
+
     @app.route("/login", methods=["GET", "POST"])
     def login():
         if request.method == "POST":
@@ -27,9 +46,11 @@ def register_auth_routes(app):
                 session["user_id"] = str(user_id)
                 session["user_email"] = email
                 session["supabase_user"] = True
+                session.permanent = True
                 return redirect(url_for("dashboard"))
-            except Exception:
-                flash("Login failed. Check your credentials.", "warn")
+            except Exception as exc:
+                current_app.logger.exception("Login failed")
+                flash(_auth_error_message(exc, "Login failed. Check your credentials."), "warn")
                 return render_template("login.html")
 
         return render_template("login.html")
@@ -54,6 +75,7 @@ def register_auth_routes(app):
                 session["user_id"] = str(user_id)
                 session["user_email"] = email
                 session["supabase_user"] = True
+                session.permanent = True
                 service = supabase_service()
                 if service and getattr(auth, "user", None):
                     try:
@@ -64,8 +86,9 @@ def register_auth_routes(app):
                         pass
                 flash("Signup complete. Please verify your email if required.", "success")
                 return redirect(url_for("dashboard"))
-            except Exception:
-                flash("Signup failed. Try again.", "warn")
+            except Exception as exc:
+                current_app.logger.exception("Signup failed")
+                flash(_auth_error_message(exc, "Signup failed. Try again."), "warn")
                 return render_template("signup.html")
 
         return render_template("signup.html")
@@ -150,6 +173,7 @@ def register_auth_routes(app):
         session["user_id"] = str(user_id)
         session["user_email"] = email or "google-user"
         session["supabase_user"] = True
+        session.permanent = True
 
         service = supabase_service()
         if service and user_id:
