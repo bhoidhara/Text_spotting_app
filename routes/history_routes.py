@@ -16,7 +16,11 @@ def register_history_routes(app):
         query = request.args.get("q", "").strip().lower()
         tag_filter = request.args.get("tag", "").strip().lower()
 
-        scans = list_scans(get_user_id())
+        try:
+            scans = list_scans(get_user_id())
+        except Exception as exc:
+            flash(f"Database error: {exc}", "warn")
+            scans = []
 
         if query:
             scans = [
@@ -29,7 +33,10 @@ def register_history_routes(app):
         if tag_filter:
             scans = [scan for scan in scans if tag_filter in [tag.lower() for tag in scan.get("tags", [])]]
 
-        tags = sorted({tag for scan in list_scans(get_user_id()) for tag in scan.get("tags", [])})
+        try:
+            tags = sorted({tag for scan in list_scans(get_user_id()) for tag in scan.get("tags", [])})
+        except Exception:
+            tags = []
 
         return render_template("history.html", scans=scans, tags=tags, query=query, tag_filter=tag_filter)
 
@@ -38,7 +45,11 @@ def register_history_routes(app):
         if not require_login():
             return redirect(url_for("login"))
 
-        scan = get_scan(scan_id)
+        try:
+            scan = get_scan(scan_id)
+        except Exception as exc:
+            flash(f"Database error: {exc}", "warn")
+            return redirect(url_for("history"))
         if scan:
             image_paths = scan.get("image_paths", [])
             for path in image_paths:
@@ -48,8 +59,15 @@ def register_history_routes(app):
                         os.remove(local_path)
                     except Exception:
                         pass
-            delete_from_storage(image_paths)
+            try:
+                delete_from_storage(image_paths)
+            except Exception:
+                pass
 
-        delete_scan_record(scan_id)
+        try:
+            delete_scan_record(scan_id)
+        except Exception as exc:
+            flash(f"Delete failed: {exc}", "warn")
+            return redirect(url_for("history"))
         flash("Scan deleted.", "success")
         return redirect(url_for("history"))

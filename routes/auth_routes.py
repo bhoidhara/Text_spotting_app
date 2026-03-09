@@ -18,21 +18,19 @@ def register_auth_routes(app):
                 return render_template("login.html")
 
             client = supabase_anon()
-            if client:
-                try:
-                    auth = client.auth.sign_in_with_password({"email": email, "password": password})
-                    user_id = getattr(auth.user, "id", None) or email
-                    session["user_id"] = str(user_id)
-                    session["user_email"] = email
-                    session["supabase_user"] = True
-                    return redirect(url_for("dashboard"))
-                except Exception:
-                    flash("Supabase auth failed. Using local session.", "warn")
-
-            session["user_id"] = email
-            session["user_email"] = email
-            session["supabase_user"] = False
-            return redirect(url_for("dashboard"))
+            if not client:
+                flash("Supabase is not configured.", "warn")
+                return render_template("login.html")
+            try:
+                auth = client.auth.sign_in_with_password({"email": email, "password": password})
+                user_id = getattr(auth.user, "id", None) or email
+                session["user_id"] = str(user_id)
+                session["user_email"] = email
+                session["supabase_user"] = True
+                return redirect(url_for("dashboard"))
+            except Exception:
+                flash("Login failed. Check your credentials.", "warn")
+                return render_template("login.html")
 
         return render_template("login.html")
 
@@ -47,30 +45,28 @@ def register_auth_routes(app):
                 return render_template("signup.html")
 
             client = supabase_anon()
-            if client:
-                try:
-                    auth = client.auth.sign_up({"email": email, "password": password})
-                    user_id = getattr(auth.user, "id", None) or email
-                    session["user_id"] = str(user_id)
-                    session["user_email"] = email
-                    session["supabase_user"] = True
-                    service = supabase_service()
-                    if service and getattr(auth, "user", None):
-                        try:
-                            service.table("profiles").upsert(
-                                {"id": str(user_id), "email": email, "created_at": now_iso()}
-                            ).execute()
-                        except Exception:
-                            pass
-                    flash("Signup complete. Please verify your email if required.", "success")
-                    return redirect(url_for("dashboard"))
-                except Exception:
-                    flash("Supabase signup failed. Using local session.", "warn")
-
-            session["user_id"] = email
-            session["user_email"] = email
-            session["supabase_user"] = False
-            return redirect(url_for("dashboard"))
+            if not client:
+                flash("Supabase is not configured.", "warn")
+                return render_template("signup.html")
+            try:
+                auth = client.auth.sign_up({"email": email, "password": password})
+                user_id = getattr(auth.user, "id", None) or email
+                session["user_id"] = str(user_id)
+                session["user_email"] = email
+                session["supabase_user"] = True
+                service = supabase_service()
+                if service and getattr(auth, "user", None):
+                    try:
+                        service.table("profiles").upsert(
+                            {"id": str(user_id), "email": email, "created_at": now_iso()}
+                        ).execute()
+                    except Exception:
+                        pass
+                flash("Signup complete. Please verify your email if required.", "success")
+                return redirect(url_for("dashboard"))
+            except Exception:
+                flash("Signup failed. Try again.", "warn")
+                return render_template("signup.html")
 
         return render_template("signup.html")
 

@@ -81,6 +81,12 @@
       <form method="post" action="{{ url_for('tts_result', scan_id=scan.id) }}" class="form inline">
         <button class="button ghost" type="submit">Text to Speech</button>
       </form>
+      {% if scan.audio_path %}
+        <div class="translation">
+          <strong>Audio Preview</strong>
+          <audio controls src="{{ url_for('uploaded_file', filename=scan.audio_path) }}"></audio>
+        </div>
+      {% endif %}
       {% if scan.translation %}
         <div class="translation">
           <strong>Translation ({{ scan.translation.target | upper }}):</strong>

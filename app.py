@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-from flask import Flask, render_template
+from flask import Flask, render_template, send_from_directory
 
 from routes.auth_routes import register_auth_routes
 from routes.history_routes import register_history_routes
@@ -33,6 +33,16 @@ def index():
 register_auth_routes(app)
 register_scan_routes(app)
 register_history_routes(app)
+
+
+@app.route("/service-worker.js")
+def service_worker():
+    return send_from_directory(app.static_folder, "service-worker.js", mimetype="application/javascript")
+
+
+@app.route("/manifest.webmanifest")
+def manifest():
+    return send_from_directory(app.static_folder, "manifest.webmanifest", mimetype="application/manifest+json")
 
 
 if __name__ == "__main__":

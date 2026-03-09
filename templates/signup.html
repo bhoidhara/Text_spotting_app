@@ -1,11 +1,16 @@
 {% extends "base.html" %}
 {% set title = "VisionText | Signup" %}
+{% set body_class = "auth-page theme-dark" %}
 
 {% block content %}
 <section class="auth">
   <div class="auth-card">
-    <h2>Create your account</h2>
-    <p class="subtitle">Start extracting, editing, and saving text from images.</p>
+    <h2>VisionText</h2>
+    <p class="subtitle">Sign in to your account or create a new one</p>
+    <div class="auth-tabs">
+      <a class="auth-tab" href="{{ url_for('login') }}">Login</a>
+      <a class="auth-tab active" href="{{ url_for('signup') }}">Sign Up</a>
+    </div>
     <form method="post" class="form">
       <label>Email</label>
       <input type="email" name="email" placeholder="you@example.com" required />
@@ -15,7 +20,6 @@
     </form>
     <div class="auth-divider">or</div>
     <a class="button ghost" href="{{ url_for('auth_google') }}">Continue with Google</a>
-    <p class="helper">Already have an account? <a href="{{ url_for('login') }}">Login</a></p>
   </div>
 </section>
 {% endblock %}

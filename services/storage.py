@@ -1,12 +1,10 @@
 import mimetypes
 
-from services.supabase_client import storage_bucket, supabase_storage_client
+from services.supabase_client import require_storage_client, storage_bucket
 
 
 def upload_to_storage(local_path, remote_path):
-    client = supabase_storage_client()
-    if not client:
-        return None
+    client = require_storage_client()
     bucket = storage_bucket()
     content_type = mimetypes.guess_type(local_path)[0] or "application/octet-stream"
     try:
@@ -19,9 +17,7 @@ def upload_to_storage(local_path, remote_path):
 
 
 def download_from_storage(remote_path):
-    client = supabase_storage_client()
-    if not client:
-        return None, None
+    client = require_storage_client()
     bucket = storage_bucket()
     try:
         data = client.storage.from_(bucket).download(remote_path)
@@ -34,9 +30,7 @@ def download_from_storage(remote_path):
 def delete_from_storage(paths):
     if not paths:
         return
-    client = supabase_storage_client()
-    if not client:
-        return
+    client = require_storage_client()
     bucket = storage_bucket()
     try:
         client.storage.from_(bucket).remove(paths)

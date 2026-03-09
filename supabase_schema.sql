@@ -26,6 +26,8 @@ create table if not exists scans (
   mcqs jsonb default '[]'::jsonb,
   tags jsonb default '[]'::jsonb,
   translation jsonb,
+  audio_path text,
+  audio_updated_at timestamptz,
   is_private boolean default false,
   created_at timestamptz default now(),
   updated_at timestamptz

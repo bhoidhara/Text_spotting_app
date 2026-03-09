@@ -19,7 +19,7 @@ from flask import (
 from services.ocr import clean_text, detect_intent, detect_language, extract_actions, ocr_image, student_pack
 from services.scans import delete_scan as delete_scan_record, get_scan, list_scans, log_export, log_translation, upsert_scan
 from services.storage import delete_from_storage, download_from_storage, upload_to_storage
-from services.supabase_client import supabase_storage_client
+from services.supabase_client import require_storage_client
 from utils.auth import get_user_id, require_login
 from utils.helpers import allowed_file, now_iso, safe_int, safe_slug
 from werkzeug.utils import secure_filename
@@ -68,10 +68,16 @@ def register_scan_routes(app):
         image_paths = []
         scan_id = str(uuid4())
         safe_user = safe_slug(user_id)
-        store_local = os.getenv("STORE_LOCAL_UPLOADS", "true").lower() not in {"false", "0", "no"}
-        storage_enabled = supabase_storage_client() is not None
+        store_local = os.getenv("STORE_LOCAL_UPLOADS", "false").lower() not in {"false", "0", "no"}
         upload_root = current_app.config["UPLOAD_FOLDER"]
         warnings = []
+
+        if not privacy_mode:
+            try:
+                require_storage_client()
+            except Exception:
+                return None, warnings, "Storage is not configured."
+
 
         for index, file in enumerate(files, start=1):
             if not file or not allowed_file(file.filename, current_app.config["ALLOWED_EXT"]):
@@ -110,13 +116,23 @@ def register_scan_routes(app):
 
             storage_path = local_rel_path.replace("\\", "/")
             upload_ok = False
-            if not privacy_mode and storage_enabled:
-                upload_ok = upload_to_storage(file_path, storage_path) is not None
+            if not privacy_mode:
+                try:
+                    upload_ok = upload_to_storage(file_path, storage_path) is not None
+                except Exception as exc:
+                    return None, warnings, f"Storage upload failed: {exc}"
 
             if not privacy_mode:
                 image_paths.append(storage_path)
 
-            if privacy_mode or (not store_local and upload_ok):
+            if not privacy_mode and not upload_ok:
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
+                return None, warnings, "Storage upload failed."
+
+            if privacy_mode or not store_local:
                 try:
                     os.remove(file_path)
                 except Exception:
@@ -156,7 +172,10 @@ def register_scan_routes(app):
             "created_at": now_iso(),
         }
 
-        upsert_scan(scan)
+        try:
+            upsert_scan(scan)
+        except Exception as exc:
+            return None, warnings, f"Database save failed: {exc}"
         if use_flash:
             for warn in warnings:
                 flash(warn, "warn")
@@ -168,7 +187,11 @@ def register_scan_routes(app):
             return redirect(url_for("login"))
 
         user_id = get_user_id()
-        scans = list_scans(user_id)
+        try:
+            scans = list_scans(user_id)
+        except Exception as exc:
+            flash(f"Database error: {exc}", "warn")
+            scans = []
         recent_scans = scans[:5]
         tags = sorted({tag for scan in scans for tag in scan.get("tags", [])})
 
@@ -202,8 +225,11 @@ def register_scan_routes(app):
         user_id = _api_user_id()
         if not user_id:
             return jsonify({"ok": False, "error": "Unauthorized"}), 401
-        scans = list_scans(user_id)
-        return jsonify({"ok": True, "data": scans})
+        try:
+            scans = list_scans(user_id)
+            return jsonify({"ok": True, "data": scans})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
 
     @app.route("/api/scans", methods=["POST"])
     def api_upload():
@@ -220,7 +246,10 @@ def register_scan_routes(app):
         user_id = _api_user_id()
         if not user_id:
             return jsonify({"ok": False, "error": "Unauthorized"}), 401
-        scan = get_scan(scan_id)
+        try:
+            scan = get_scan(scan_id)
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
         if not scan:
             return jsonify({"ok": False, "error": "Scan not found"}), 404
         if scan.get("user_id") != user_id:
@@ -232,7 +261,10 @@ def register_scan_routes(app):
         user_id = _api_user_id()
         if not user_id:
             return jsonify({"ok": False, "error": "Unauthorized"}), 401
-        scan = get_scan(scan_id)
+        try:
+            scan = get_scan(scan_id)
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
         if not scan:
             return jsonify({"ok": False, "error": "Scan not found"}), 404
         if scan.get("user_id") != user_id:
@@ -247,7 +279,10 @@ def register_scan_routes(app):
         scan["cleaned_text"] = cleaned_text
         scan["tags"] = tags
         scan["updated_at"] = now_iso()
-        upsert_scan(scan)
+        try:
+            upsert_scan(scan)
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
         return jsonify({"ok": True, "data": scan})
 
     @app.route("/api/scans/<scan_id>", methods=["DELETE"])
@@ -255,7 +290,10 @@ def register_scan_routes(app):
         user_id = _api_user_id()
         if not user_id:
             return jsonify({"ok": False, "error": "Unauthorized"}), 401
-        scan = get_scan(scan_id)
+        try:
+            scan = get_scan(scan_id)
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
         if not scan:
             return jsonify({"ok": False, "error": "Scan not found"}), 404
         if scan.get("user_id") != user_id:
@@ -269,8 +307,14 @@ def register_scan_routes(app):
                     os.remove(local_path)
                 except Exception:
                     pass
-        delete_from_storage(image_paths)
-        delete_scan_record(scan_id)
+        try:
+            delete_from_storage(image_paths)
+        except Exception:
+            pass
+        try:
+            delete_scan_record(scan_id)
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
         return jsonify({"ok": True})
 
     @app.route("/result/<scan_id>")
@@ -278,7 +322,11 @@ def register_scan_routes(app):
         if not require_login():
             return redirect(url_for("login"))
 
-        scan = get_scan(scan_id)
+        try:
+            scan = get_scan(scan_id)
+        except Exception as exc:
+            flash(f"Database error: {exc}", "warn")
+            return redirect(url_for("dashboard"))
         if not scan:
             flash("Scan not found.", "warn")
             return redirect(url_for("dashboard"))
@@ -296,7 +344,11 @@ def register_scan_routes(app):
         if not require_login():
             return redirect(url_for("login"))
 
-        scan = get_scan(scan_id)
+        try:
+            scan = get_scan(scan_id)
+        except Exception as exc:
+            flash(f"Database error: {exc}", "warn")
+            return redirect(url_for("dashboard"))
         if not scan:
             flash("Scan not found.", "warn")
             return redirect(url_for("dashboard"))
@@ -308,7 +360,11 @@ def register_scan_routes(app):
         scan["tags"] = tags
         scan["updated_at"] = now_iso()
 
-        upsert_scan(scan)
+        try:
+            upsert_scan(scan)
+        except Exception as exc:
+            flash(f"Save failed: {exc}", "warn")
+            return redirect(url_for("result", scan_id=scan_id))
         flash("Saved successfully.", "success")
         return redirect(url_for("result", scan_id=scan_id))
 
@@ -317,7 +373,11 @@ def register_scan_routes(app):
         if not require_login():
             return redirect(url_for("login"))
 
-        scan = get_scan(scan_id)
+        try:
+            scan = get_scan(scan_id)
+        except Exception as exc:
+            flash(f"Database error: {exc}", "warn")
+            return redirect(url_for("dashboard"))
         if not scan:
             flash("Scan not found.", "warn")
             return redirect(url_for("dashboard"))
@@ -381,28 +441,80 @@ def register_scan_routes(app):
         if not require_login():
             return redirect(url_for("login"))
 
-        scan = get_scan(scan_id)
+        try:
+            scan = get_scan(scan_id)
+        except Exception as exc:
+            flash(f"Database error: {exc}", "warn")
+            return redirect(url_for("dashboard"))
         if not scan:
             flash("Scan not found.", "warn")
             return redirect(url_for("dashboard"))
 
         target_lang = request.form.get("target_lang", "en")
-        scan["translation"] = {
-            "target": target_lang,
-            "text": scan.get("cleaned_text") or scan.get("extracted_text", ""),
-            "created_at": now_iso(),
-        }
-        upsert_scan(scan)
-        log_translation(scan_id, scan.get("user_id"), scan.get("language"), target_lang, scan["translation"]["text"])
-        flash("Translation is in demo mode.", "warn")
+        source_text = scan.get("cleaned_text") or scan.get("extracted_text", "")
+        try:
+            from services.free_ai import translate_text
+
+            translated, source_lang = translate_text(source_text, target_lang)
+            scan["translation"] = {
+                "target": target_lang,
+                "source": source_lang,
+                "text": translated,
+                "created_at": now_iso(),
+            }
+            upsert_scan(scan)
+            log_translation(scan_id, scan.get("user_id"), source_lang, target_lang, translated)
+            flash("Translation complete.", "success")
+        except Exception as exc:
+            flash(f"Translation failed: {exc}", "warn")
         return redirect(url_for("result", scan_id=scan_id))
 
     @app.route("/result/<scan_id>/tts", methods=["POST"])
     def tts_result(scan_id):
         if not require_login():
             return redirect(url_for("login"))
+        try:
+            scan = get_scan(scan_id)
+        except Exception as exc:
+            flash(f"Database error: {exc}", "warn")
+            return redirect(url_for("dashboard"))
+        if not scan:
+            flash("Scan not found.", "warn")
+            return redirect(url_for("dashboard"))
 
-        flash("Text-to-speech is not configured yet.", "warn")
+        text = scan.get("cleaned_text") or scan.get("extracted_text", "")
+        if not text:
+            flash("No text available for audio.", "warn")
+            return redirect(url_for("result", scan_id=scan_id))
+
+        lang_map = {
+            "en": "en",
+            "hi": "hi",
+            "gu": "gu",
+        }
+        language_code = lang_map.get((scan.get("language") or "en")[:2], "en")
+        try:
+            from services.free_ai import synthesize_speech
+
+            audio_bytes = synthesize_speech(text[:4000], language_code=language_code)
+            audio_name = f"audio_{scan_id}.mp3"
+            storage_path = f"audio/{scan.get('user_id')}/{audio_name}"
+            temp_path = os.path.join(current_app.config["UPLOAD_FOLDER"], storage_path)
+            os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+            with open(temp_path, "wb") as handle:
+                handle.write(audio_bytes)
+            upload_to_storage(temp_path, storage_path)
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+            scan["audio_path"] = storage_path
+            scan["audio_updated_at"] = now_iso()
+            upsert_scan(scan)
+            flash("Audio generated.", "success")
+        except Exception as exc:
+            flash(f"TTS failed: {exc}", "warn")
         return redirect(url_for("result", scan_id=scan_id))
 
     @app.route("/uploads/<path:filename>")
@@ -411,8 +523,11 @@ def register_scan_routes(app):
         if os.path.exists(local_path):
             return send_from_directory(current_app.config["UPLOAD_FOLDER"], filename)
 
-        data, content_type = download_from_storage(filename)
-        if data is not None:
-            return send_file(io.BytesIO(data), mimetype=content_type)
+        try:
+            data, content_type = download_from_storage(filename)
+            if data is not None:
+                return send_file(io.BytesIO(data), mimetype=content_type)
+        except Exception:
+            pass
 
         return abort(404)

@@ -19,9 +19,13 @@ services:
       - key: SUPABASE_USE_STORAGE
         value: "true"
       - key: STORE_LOCAL_UPLOADS
-        value: "true"
+        value: "false"
       - key: PYTHON_VERSION
         value: "3.12"
+      - key: LIBRETRANSLATE_URL
+        value: "https://libretranslate.de"
+      - key: LIBRETRANSLATE_API_KEY
+        sync: false
       - key: SECRET_KEY
         sync: false
       - key: TESSERACT_CMD

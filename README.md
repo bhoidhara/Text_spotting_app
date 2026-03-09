@@ -1,4 +1,4 @@
-# VisionText (Flask + Supabase)
+# VisionText (Flask + Supabase + Free AI)
 
 ## Setup
 
@@ -19,14 +19,18 @@
    - `SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_KEY`
 
-Notes:
-- If `SUPABASE_SERVICE_KEY` is set, the backend can read/write scans regardless of RLS.
-- If you want to rely on RLS + user auth only, enable the policies in `supabase_schema.sql` and ensure the anon key has access.
+## Translation (Free)
+
+Uses LibreTranslate. Set:
+- `LIBRETRANSLATE_URL` (default: `https://libretranslate.de`)
+- Optional `LIBRETRANSLATE_API_KEY`
+
+## TTS (Free)
+
+Uses `gTTS` (Google Translate TTS, no API key).
 
 ## Run
 
 ```bash
 python app.py
 ```
-
-The app will be available at `http://127.0.0.1:5000`.

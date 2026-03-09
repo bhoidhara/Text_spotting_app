@@ -75,3 +75,17 @@ def supabase_storage_client():
 
 def storage_bucket():
     return os.getenv("SUPABASE_BUCKET", "uploads")
+
+
+def require_db_client():
+    client = supabase_db_client()
+    if not client:
+        raise RuntimeError("Supabase database is not configured.")
+    return client
+
+
+def require_storage_client():
+    client = supabase_storage_client()
+    if not client:
+        raise RuntimeError("Supabase storage is not configured.")
+    return client
