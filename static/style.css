@@ -70,6 +70,11 @@ body.auth-page .site-footer {
   display: none;
 }
 
+body.app-shell .site-header,
+body.app-shell .site-footer {
+  display: none;
+}
+
 body.theme-dark .site-header {
   background: rgba(11, 12, 15, 0.9);
   border-bottom: 1px solid var(--auth-line);

@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, redirect, render_template, send_from_directory, url_for
 
 from routes.auth_routes import register_auth_routes
 from routes.history_routes import register_history_routes
@@ -27,7 +27,7 @@ os.makedirs(app.config["DATA_DIR"], exist_ok=True)
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return redirect(url_for("login"))
 
 
 register_auth_routes(app)
