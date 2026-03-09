@@ -3,7 +3,7 @@ services:
     name: text-spotting-app
     env: python
     plan: free
-    buildCommand: apt-get update && apt-get install -y tesseract-ocr libjpeg62-turbo-dev zlib1g-dev libfreetype6-dev libpng-dev libtiff5-dev libwebp-dev build-essential && pip install -r requirements.txt
+    buildCommand: apt-get update && apt-get install -y tesseract-ocr libjpeg62-turbo-dev zlib1g-dev libfreetype6-dev libpng-dev libtiff5-dev libwebp-dev build-essential && python -m pip install --upgrade pip setuptools wheel && python -m pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
       - key: SUPABASE_URL
@@ -21,7 +21,7 @@ services:
       - key: STORE_LOCAL_UPLOADS
         value: "false"
       - key: PYTHON_VERSION
-        value: "3.12"
+        value: "3.12.2"
       - key: LIBRETRANSLATE_URL
         value: "https://libretranslate.de"
       - key: LIBRETRANSLATE_API_KEY
