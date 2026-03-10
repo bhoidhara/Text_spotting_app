@@ -637,8 +637,13 @@ body.theme-dark .pill {
 
 .flash-stack {
   display: grid;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin: 0 auto 16px;
+  width: min(800px, 92vw);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  padding-top: 10px;
 }
 
 .flash {
@@ -683,6 +688,16 @@ body.auth-page .flash-warn {
   background: rgba(234, 179, 8, 0.16);
   border-color: rgba(234, 179, 8, 0.45);
   color: #fde68a;
+}
+
+body.auth-page .flash-stack {
+  width: min(540px, 94vw);
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+body.auth-page .flash {
+  border-radius: 14px;
 }
 
 .muted {
