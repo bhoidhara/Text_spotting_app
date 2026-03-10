@@ -30,3 +30,11 @@ services:
         sync: false
       - key: TESSERACT_CMD
         sync: false
+      - key: WEB_CONCURRENCY
+        value: "2"
+      - key: GUNICORN_CMD_ARGS
+        value: "--worker-class gthread --threads 4 --timeout 90"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: FLASK_ENV
+        value: "production"
