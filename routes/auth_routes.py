@@ -33,7 +33,7 @@ def register_auth_routes(app):
             return "User already exists. Please login."
         if "password" in lowered and "at least" in lowered:
             return "Password must be at least 6 characters."
-        return fallback
+        return message.strip() or fallback
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
