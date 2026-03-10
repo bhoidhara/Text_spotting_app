@@ -26,6 +26,7 @@
         <a href="{{ url_for('dashboard') }}">Dashboard</a>
         <a href="{{ url_for('history') }}">History</a>
         <a href="{{ url_for('logout') }}">Logout</a>
+        <span class="user-chip">{{ session.get('user_email') }}</span>
       {% else %}
         <a href="{{ url_for('login') }}">Login</a>
         <a href="{{ url_for('signup') }}" class="nav-cta">Sign Up</a>
