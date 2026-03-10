@@ -646,6 +646,7 @@ body.theme-dark .pill {
   border-radius: 12px;
   border: 1px solid var(--line);
   background: #fffdfa;
+  color: var(--ink);
 }
 
 .flash-success {
@@ -656,6 +657,27 @@ body.theme-dark .pill {
 .flash-warn {
   border-color: #f3c7a6;
   background: #fff2e8;
+}
+
+body.theme-dark .flash,
+body.auth-page .flash {
+  background: #111318;
+  border-color: #1f2530;
+  color: #e5e7eb;
+}
+
+body.theme-dark .flash-success,
+body.auth-page .flash-success {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #d1fae5;
+}
+
+body.theme-dark .flash-warn,
+body.auth-page .flash-warn {
+  background: rgba(234, 179, 8, 0.12);
+  border-color: rgba(234, 179, 8, 0.35);
+  color: #fde68a;
 }
 
 .muted {
