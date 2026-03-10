@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 from dotenv import load_dotenv
 from flask import Flask, redirect, render_template, send_from_directory, url_for
@@ -12,6 +13,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-change")
+app.permanent_session_lifetime = timedelta(days=int(os.getenv("SESSION_DAYS", "30")))
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app.config.update(

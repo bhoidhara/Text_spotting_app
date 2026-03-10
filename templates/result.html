@@ -79,6 +79,10 @@
         <button class="button ghost" type="submit">Translate</button>
       </form>
       <form method="post" action="{{ url_for('tts_result', scan_id=scan.id) }}" class="form inline">
+        <select name="tts_speed">
+          <option value="normal">Normal speed</option>
+          <option value="slow">Slow speed</option>
+        </select>
         <button class="button ghost" type="submit">Text to Speech</button>
       </form>
       {% if scan.audio_path %}
