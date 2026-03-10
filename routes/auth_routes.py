@@ -1,6 +1,15 @@
 import os
 
-from flask import current_app, flash, redirect, render_template, request, session, url_for
+from flask import (
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
 from services.supabase_client import supabase_anon, supabase_service
 from utils.helpers import now_iso
@@ -98,6 +107,50 @@ def register_auth_routes(app):
         session.clear()
         flash("Logged out.", "success")
         return redirect(url_for("index"))
+
+    @app.route("/api/diag/config")
+    def diag_config():
+        env_url = bool(os.getenv("SUPABASE_URL"))
+        env_anon = bool(os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY"))
+        env_service = bool(os.getenv("SUPABASE_SERVICE_KEY"))
+
+        anon_ok = False
+        service_ok = False
+        db_ok = False
+        storage_ok = False
+
+        try:
+            anon_client = supabase_anon()
+            anon_ok = anon_client is not None
+        except Exception:
+            anon_ok = False
+
+        try:
+            service_client = supabase_service()
+            service_ok = service_client is not None
+        except Exception:
+            service_ok = False
+
+        try:
+            from services.supabase_client import supabase_db_client, supabase_storage_client
+
+            db_ok = supabase_db_client() is not None
+            storage_ok = supabase_storage_client() is not None
+        except Exception:
+            db_ok = db_ok or False
+            storage_ok = storage_ok or False
+
+        return jsonify(
+            {
+                "env": {"url": env_url, "anon_key": env_anon, "service_key": env_service},
+                "clients": {
+                    "anon_client_ok": anon_ok,
+                    "service_client_ok": service_ok,
+                    "db_client_ok": db_ok,
+                    "storage_client_ok": storage_ok,
+                },
+            }
+        )
 
     @app.route("/auth/google")
     def auth_google():
