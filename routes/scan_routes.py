@@ -65,17 +65,11 @@ def register_scan_routes(app):
             return None, [], "Pillow is not installed. OCR cannot run."
 
         lang = request.form.get("lang", "eng")
-        def _flag(name, default_on=False):
-            value = request.form.get(name)
-            if value is None:
-                return default_on
-            return str(value).lower() in {"on", "true", "1", "yes"}
-
-        cleanup = _flag("cleanup", default_on=True)
-        autocorrect = _flag("autocorrect", default_on=True)
-        detect_intent_flag = _flag("detect_intent", default_on=True)
-        student_mode = _flag("student_mode", default_on=True)
-        privacy_mode = _flag("privacy_mode", default_on=False)
+        cleanup = request.form.get("cleanup") == "on"
+        autocorrect = request.form.get("autocorrect") == "on"
+        detect_intent_flag = request.form.get("detect_intent") == "on"
+        student_mode = request.form.get("student_mode") == "on"
+        privacy_mode = request.form.get("privacy_mode") == "on"
         crop_box = _build_crop_box()
 
         combined_text = []

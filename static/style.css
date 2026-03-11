@@ -566,32 +566,6 @@ body.theme-dark .sniper {
   gap: 8px;
 }
 
-.auto-stack {
-  display: grid;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.auto-chip {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: #fff1e6;
-  border: 1px solid var(--line);
-  font-size: 13px;
-}
-
-body.theme-dark .auto-chip {
-  background: rgba(124, 77, 255, 0.12);
-  border-color: var(--auth-line);
-  color: #e5e7eb;
-}
-
-.privacy-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
 
 .text-block {
   white-space: pre-wrap;
@@ -640,18 +614,6 @@ body.theme-dark .text-block {
   border-radius: 999px;
 }
 
-.pill-stack {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.pill-accent {
-  background: #e9f6f2;
-  border-color: #bfe2d6;
-  color: #0f6b6f;
-}
 
 body.theme-dark .pill {
   background: rgba(124, 77, 255, 0.15);
@@ -659,11 +621,6 @@ body.theme-dark .pill {
   color: #e5e7eb;
 }
 
-body.theme-dark .pill-accent {
-  background: rgba(34, 197, 94, 0.16);
-  border-color: rgba(34, 197, 94, 0.4);
-  color: #d1fae5;
-}
 
 .button-row {
   display: flex;

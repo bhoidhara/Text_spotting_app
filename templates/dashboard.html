@@ -27,19 +27,13 @@
           <option value="eng+hin+guj">Auto (EN + HI + GU)</option>
         </select>
 
-        <input type="hidden" name="cleanup" value="on" />
-        <input type="hidden" name="autocorrect" value="on" />
-        <input type="hidden" name="detect_intent" value="on" />
-        <input type="hidden" name="student_mode" value="on" />
-
-        <div class="auto-stack">
-          <div class="auto-chip">Smart intent detection → auto mode switch</div>
-          <div class="auto-chip">Auto cleanup + spell fix</div>
-          <div class="auto-chip">Student smart mode (notes + MCQs)</div>
-          <div class="auto-chip">Multi-image merge with page numbers</div>
+        <div class="checkbox-grid">
+          <label><input type="checkbox" name="cleanup" checked /> Smart cleanup</label>
+          <label><input type="checkbox" name="autocorrect" checked /> Auto-correct (English)</label>
+          <label><input type="checkbox" name="detect_intent" checked /> Intent detection</label>
+          <label><input type="checkbox" name="student_mode" checked /> Student smart mode</label>
+          <label><input type="checkbox" name="privacy_mode" /> Privacy mode</label>
         </div>
-
-        <label class="privacy-toggle"><input type="checkbox" name="privacy_mode" /> Privacy mode (no cloud storage)</label>
 
         <div class="sniper">
           <h4>Sniper Mode (Optional)</h4>
