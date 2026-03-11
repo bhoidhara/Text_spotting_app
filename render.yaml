@@ -3,7 +3,7 @@ services:
     name: text-spotting-app
     env: python
     plan: free
-    buildCommand: apt-get update && apt-get install -y tesseract-ocr tesseract-ocr-hin tesseract-ocr-guj libjpeg62-turbo-dev zlib1g-dev libfreetype6-dev libpng-dev libtiff5-dev libwebp-dev build-essential && python -m pip install --upgrade pip setuptools wheel && python -m pip install -r requirements.txt
+    buildCommand: apt-get update && apt-get install -y tesseract-ocr tesseract-ocr-hin tesseract-ocr-guj libjpeg62-turbo-dev zlib1g-dev libfreetype6-dev libpng-dev libtiff5-dev libwebp-dev libheif-dev libde265-0 build-essential && python -m pip install --upgrade pip setuptools wheel && python -m pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
       - key: SUPABASE_URL

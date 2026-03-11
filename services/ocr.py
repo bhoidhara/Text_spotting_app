@@ -10,6 +10,17 @@ except Exception:
     ImageOps = None
 
 try:
+    from pillow_heif import register_heif_opener
+except Exception:
+    register_heif_opener = None
+
+if register_heif_opener:
+    try:
+        register_heif_opener()
+    except Exception:
+        pass
+
+try:
     import pytesseract
 except Exception:
     pytesseract = None

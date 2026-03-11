@@ -1,6 +1,7 @@
 Flask==2.3.3
 python-dotenv==1.0.1
 Pillow==10.2.0
+pillow-heif==0.18.0
 pytesseract==0.3.10
 langdetect==1.0.9
 supabase==2.4.5

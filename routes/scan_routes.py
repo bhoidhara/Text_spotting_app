@@ -162,7 +162,9 @@ def register_scan_routes(app):
                     pass
 
         if not combined_text:
-            return None, warnings, "No valid images were processed."
+            if warnings:
+                return None, warnings, f"No valid images were processed. {warnings[0]}"
+            return None, warnings, "No valid images were processed. Please upload JPG or PNG images."
 
         extracted_text = "\n\n".join(combined_text).strip()
         cleaned_text = clean_text(extracted_text) if cleanup else extracted_text
