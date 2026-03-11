@@ -15,8 +15,19 @@ _LOCAL_PATH = os.getenv(
 )
 
 
+def _supabase_ready():
+    url = os.getenv("SUPABASE_URL")
+    anon = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
+    service = os.getenv("SUPABASE_SERVICE_KEY")
+    return bool(url and (anon or service))
+
+
 def _supabase_only():
-    return os.getenv("FORCE_SUPABASE_ONLY", "true").lower() not in {"false", "0", "no"}
+    forced = os.getenv("FORCE_SUPABASE_ONLY")
+    if forced is None:
+        # Default to local fallback when Supabase credentials are missing.
+        return _supabase_ready()
+    return forced.lower() not in {"false", "0", "no"}
 
 
 def _load_local():
