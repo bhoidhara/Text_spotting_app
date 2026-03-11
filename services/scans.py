@@ -5,14 +5,18 @@ import threading
 from services.supabase_client import require_db_client
 from utils.helpers import now_iso
 
-# Fallback JSON store so core flows keep working even if Supabase DB
-# is misconfigured. Enabled automatically when require_db_client fails.
+# Local fallback is now optional and disabled by default to keep the app fully dynamic.
+# Set FORCE_SUPABASE_ONLY=false if you want the old offline/local mode.
 _LOCK = threading.Lock()
 _BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _LOCAL_PATH = os.getenv(
     "LOCAL_SCANS_PATH",
     os.path.join(_BASE_DIR, "data", "scans.json"),
 )
+
+
+def _supabase_only():
+    return os.getenv("FORCE_SUPABASE_ONLY", "true").lower() not in {"false", "0", "no"}
 
 
 def _load_local():
@@ -65,7 +69,9 @@ def list_scans(user_id):
         scans = response.data or []
         return [normalize_scan(scan) for scan in scans]
     except Exception:
-        # Fallback to local JSON store
+        if _supabase_only():
+            raise
+        # Fallback to local JSON store (only when FORCE_SUPABASE_ONLY=false)
         scans = [s for s in _load_local() if s.get("user_id") == user_id]
         # newest first
         scans = sorted(scans, key=lambda x: x.get("created_at", ""), reverse=True)
@@ -79,6 +85,8 @@ def get_scan(scan_id):
         scans = response.data or []
         return normalize_scan(scans[0]) if scans else None
     except Exception:
+        if _supabase_only():
+            raise
         for scan in _load_local():
             if scan.get("id") == scan_id:
                 return normalize_scan(scan)
@@ -91,6 +99,8 @@ def upsert_scan(scan):
         client.table("scans").upsert(scan).execute()
         return
     except Exception:
+        if _supabase_only():
+            raise
         scans = _load_local()
         updated = False
         for idx, existing in enumerate(scans):
@@ -109,6 +119,8 @@ def delete_scan(scan_id):
         client.table("scans").delete().eq("id", scan_id).execute()
         return
     except Exception:
+        if _supabase_only():
+            raise
         scans = [s for s in _load_local() if s.get("id") != scan_id]
         _save_local(scans)
 
@@ -126,6 +138,8 @@ def log_export(scan_id, user_id, export_format):
         ).execute()
     except Exception:
         # ignore in local mode
+        if _supabase_only():
+            raise
         return
 
 
@@ -144,4 +158,6 @@ def log_translation(scan_id, user_id, source_lang, target_lang, text):
         ).execute()
     except Exception:
         # ignore in local mode
+        if _supabase_only():
+            raise
         return

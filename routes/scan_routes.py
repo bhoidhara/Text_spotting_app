@@ -28,6 +28,7 @@ from services.ocr import (
 from services.scans import delete_scan as delete_scan_record, get_scan, list_scans, log_export, log_translation, upsert_scan
 from services.storage import delete_from_storage, download_from_storage, upload_to_storage
 from services.supabase_client import require_storage_client, supabase_storage_client
+from services.scans import _supabase_only
 from utils.auth import get_user_id, require_login
 from utils.helpers import allowed_file, now_iso, safe_int, safe_slug
 from werkzeug.utils import secure_filename
@@ -89,6 +90,8 @@ def register_scan_routes(app):
                 storage_available = supabase_storage_client() is not None
             except Exception:
                 storage_available = False
+                if _supabase_only():
+                    return None, warnings, "Storage is not configured."
                 warnings.append("Cloud storage not available; keeping files locally.")
 
 
@@ -136,9 +139,14 @@ def register_scan_routes(app):
                     warnings.append(f"Storage upload failed; kept locally: {exc}")
                     upload_ok = False
 
-            # Keep reference only when not privacy mode
             if not privacy_mode:
                 image_paths.append(storage_path)
+            elif _supabase_only():
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
+                return None, warnings, "Privacy mode requires local storage, but local is disabled."
 
             # Remove local copy when privacy mode, or when safely uploaded to cloud
             delete_local = False
@@ -542,6 +550,14 @@ def register_scan_routes(app):
                         pass
                 except Exception as exc:
                     flash(f"Audio upload failed; kept locally: {exc}", "warn")
+            elif _supabase_only():
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
+                flash("Storage not available; audio not saved.", "warn")
+                return redirect(url_for("result", scan_id=scan_id))
+
             # Always keep a path that /uploads can serve
             scan["audio_path"] = storage_path
             scan["audio_updated_at"] = now_iso()
