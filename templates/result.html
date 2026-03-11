@@ -1,5 +1,15 @@
 {% extends "base.html" %}
 {% set title = "VisionText | Result" %}
+{% set mode_label = "Smart Mode" %}
+{% if scan.intent == "document" %}
+  {% set mode_label = "PDF/DOC Mode" %}
+{% elif scan.intent == "notes" %}
+  {% set mode_label = "Study Mode" %}
+{% elif scan.intent == "form" %}
+  {% set mode_label = "Auto-fill Mode" %}
+{% elif scan.intent == "quote" %}
+  {% set mode_label = "Creative Mode" %}
+{% endif %}
 
 {% block content %}
 <section class="result">
@@ -9,7 +19,10 @@
       <h2>Editable Text Output</h2>
       <p class="subtitle">Review the text, clean it, and export or share.</p>
     </div>
-    <div class="pill">Intent: {{ scan.intent|capitalize }}</div>
+    <div class="pill-stack">
+      <div class="pill">Intent: {{ scan.intent|capitalize }}</div>
+      <div class="pill pill-accent">Mode: {{ mode_label }}</div>
+    </div>
   </div>
 
   {% if scan.image_paths %}
