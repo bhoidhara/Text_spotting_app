@@ -1,5 +1,36 @@
+import json
+import os
+import threading
+
 from services.supabase_client import require_db_client
 from utils.helpers import now_iso
+
+# Fallback JSON store so core flows keep working even if Supabase DB
+# is misconfigured. Enabled automatically when require_db_client fails.
+_LOCK = threading.Lock()
+_BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+_LOCAL_PATH = os.getenv(
+    "LOCAL_SCANS_PATH",
+    os.path.join(_BASE_DIR, "data", "scans.json"),
+)
+
+
+def _load_local():
+    try:
+        with _LOCK:
+            if not os.path.exists(_LOCAL_PATH):
+                return []
+            with open(_LOCAL_PATH, "r", encoding="utf-8") as handle:
+                return json.load(handle) or []
+    except Exception:
+        return []
+
+
+def _save_local(scans):
+    os.makedirs(os.path.dirname(_LOCAL_PATH), exist_ok=True)
+    with _LOCK:
+        with open(_LOCAL_PATH, "w", encoding="utf-8") as handle:
+            json.dump(scans, handle, ensure_ascii=False, indent=2)
 
 
 def normalize_scan(scan):
@@ -22,38 +53,69 @@ def normalize_scan(scan):
 
 
 def list_scans(user_id):
-    client = require_db_client()
-    response = (
-        client.table("scans")
-        .select("*")
-        .eq("user_id", user_id)
-        .order("created_at", desc=True)
-        .execute()
-    )
-    scans = response.data or []
-    return [normalize_scan(scan) for scan in scans]
+    try:
+        client = require_db_client()
+        response = (
+            client.table("scans")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        scans = response.data or []
+        return [normalize_scan(scan) for scan in scans]
+    except Exception:
+        # Fallback to local JSON store
+        scans = [s for s in _load_local() if s.get("user_id") == user_id]
+        # newest first
+        scans = sorted(scans, key=lambda x: x.get("created_at", ""), reverse=True)
+        return [normalize_scan(scan) for scan in scans]
 
 
 def get_scan(scan_id):
-    client = require_db_client()
-    response = client.table("scans").select("*").eq("id", scan_id).limit(1).execute()
-    scans = response.data or []
-    return normalize_scan(scans[0]) if scans else None
+    try:
+        client = require_db_client()
+        response = client.table("scans").select("*").eq("id", scan_id).limit(1).execute()
+        scans = response.data or []
+        return normalize_scan(scans[0]) if scans else None
+    except Exception:
+        for scan in _load_local():
+            if scan.get("id") == scan_id:
+                return normalize_scan(scan)
+        return None
 
 
 def upsert_scan(scan):
-    client = require_db_client()
-    client.table("scans").upsert(scan).execute()
+    try:
+        client = require_db_client()
+        client.table("scans").upsert(scan).execute()
+        return
+    except Exception:
+        scans = _load_local()
+        updated = False
+        for idx, existing in enumerate(scans):
+            if existing.get("id") == scan.get("id"):
+                scans[idx] = scan
+                updated = True
+                break
+        if not updated:
+            scans.append(scan)
+        _save_local(scans)
 
 
 def delete_scan(scan_id):
-    client = require_db_client()
-    client.table("scans").delete().eq("id", scan_id).execute()
+    try:
+        client = require_db_client()
+        client.table("scans").delete().eq("id", scan_id).execute()
+        return
+    except Exception:
+        scans = [s for s in _load_local() if s.get("id") != scan_id]
+        _save_local(scans)
 
 
 def log_export(scan_id, user_id, export_format):
-    client = require_db_client()
     try:
+        client = require_db_client()
         client.table("exports").insert(
             {
                 "scan_id": scan_id,
@@ -63,12 +125,13 @@ def log_export(scan_id, user_id, export_format):
             }
         ).execute()
     except Exception:
-        pass
+        # ignore in local mode
+        return
 
 
 def log_translation(scan_id, user_id, source_lang, target_lang, text):
-    client = require_db_client()
     try:
+        client = require_db_client()
         client.table("translations").insert(
             {
                 "scan_id": scan_id,
@@ -80,4 +143,5 @@ def log_translation(scan_id, user_id, source_lang, target_lang, text):
             }
         ).execute()
     except Exception:
-        pass
+        # ignore in local mode
+        return

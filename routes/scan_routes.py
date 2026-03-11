@@ -27,7 +27,7 @@ from services.ocr import (
 )
 from services.scans import delete_scan as delete_scan_record, get_scan, list_scans, log_export, log_translation, upsert_scan
 from services.storage import delete_from_storage, download_from_storage, upload_to_storage
-from services.supabase_client import require_storage_client
+from services.supabase_client import require_storage_client, supabase_storage_client
 from utils.auth import get_user_id, require_login
 from utils.helpers import allowed_file, now_iso, safe_int, safe_slug
 from werkzeug.utils import secure_filename
@@ -81,11 +81,15 @@ def register_scan_routes(app):
         upload_root = current_app.config["UPLOAD_FOLDER"]
         warnings = []
 
-        if not privacy_mode:
+        storage_env_on = os.getenv("SUPABASE_USE_STORAGE", "true").lower() not in {"false", "0", "no"}
+        storage_available = False
+        if storage_env_on and not privacy_mode:
             try:
                 require_storage_client()
+                storage_available = supabase_storage_client() is not None
             except Exception:
-                return None, warnings, "Storage is not configured."
+                storage_available = False
+                warnings.append("Cloud storage not available; keeping files locally.")
 
 
         for index, file in enumerate(files, start=1):
@@ -125,23 +129,25 @@ def register_scan_routes(app):
 
             storage_path = local_rel_path.replace("\\", "/")
             upload_ok = False
-            if not privacy_mode:
+            if storage_available:
                 try:
                     upload_ok = upload_to_storage(file_path, storage_path) is not None
                 except Exception as exc:
-                    return None, warnings, f"Storage upload failed: {exc}"
+                    warnings.append(f"Storage upload failed; kept locally: {exc}")
+                    upload_ok = False
 
+            # Keep reference only when not privacy mode
             if not privacy_mode:
                 image_paths.append(storage_path)
 
-            if not privacy_mode and not upload_ok:
-                try:
-                    os.remove(file_path)
-                except Exception:
-                    pass
-                return None, warnings, "Storage upload failed."
+            # Remove local copy when privacy mode, or when safely uploaded to cloud
+            delete_local = False
+            if privacy_mode:
+                delete_local = True
+            elif storage_available and upload_ok and not store_local:
+                delete_local = True
 
-            if privacy_mode or not store_local:
+            if delete_local:
                 try:
                     os.remove(file_path)
                 except Exception:
@@ -516,12 +522,27 @@ def register_scan_routes(app):
             os.makedirs(os.path.dirname(temp_path), exist_ok=True)
             with open(temp_path, "wb") as handle:
                 handle.write(audio_bytes)
-            upload_to_storage(temp_path, storage_path)
-            try:
-                os.remove(temp_path)
-            except Exception:
-                pass
 
+            storage_env_on = os.getenv("SUPABASE_USE_STORAGE", "true").lower() not in {"false", "0", "no"}
+            storage_available = False
+            if storage_env_on:
+                try:
+                    require_storage_client()
+                    storage_available = supabase_storage_client() is not None
+                except Exception:
+                    storage_available = False
+
+            if storage_available:
+                try:
+                    upload_to_storage(temp_path, storage_path)
+                    # safe to delete local copy
+                    try:
+                        os.remove(temp_path)
+                    except Exception:
+                        pass
+                except Exception as exc:
+                    flash(f"Audio upload failed; kept locally: {exc}", "warn")
+            # Always keep a path that /uploads can serve
             scan["audio_path"] = storage_path
             scan["audio_updated_at"] = now_iso()
             upsert_scan(scan)
