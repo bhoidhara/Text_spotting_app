@@ -1,5 +1,15 @@
 {% extends "base.html" %}
 {% set title = "VisionText | Result" %}
+{% set mode_label = "" %}
+{% if scan.mode == "pdf_doc" %}
+  {% set mode_label = "PDF/DOC Mode" %}
+{% elif scan.mode == "study" %}
+  {% set mode_label = "Study Mode" %}
+{% elif scan.mode == "autofill" %}
+  {% set mode_label = "Auto-fill Mode" %}
+{% elif scan.mode == "creative" %}
+  {% set mode_label = "Creative Mode" %}
+{% endif %}
 
 {% block content %}
 <section class="result">
@@ -9,7 +19,9 @@
       <h2>Editable Text Output</h2>
       <p class="subtitle">Review the text, clean it, and export or share.</p>
     </div>
-    <div class="pill">Intent: {{ scan.intent|capitalize }}</div>
+    <div class="pill">
+      Intent: {{ scan.intent|capitalize }}{% if mode_label %} · {{ mode_label }}{% endif %}
+    </div>
   </div>
 
   {% if scan.image_paths %}
@@ -27,6 +39,19 @@
     <div class="card">
       <h3>Extracted Text</h3>
       <pre class="text-block">{{ scan.extracted_text }}</pre>
+      {% if scan.line_confidence %}
+        <div class="confidence-lines">
+          {% for item in scan.line_confidence %}
+            <div class="confidence-line{% if item.conf < 60 %} low{% endif %}">
+              <span class="confidence-score">{{ item.conf }}%</span>
+              <span class="confidence-text">{{ item.text }}</span>
+              {% if item.page %}
+                <span class="confidence-page">P{{ item.page }}</span>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
     </div>
 
     <div class="card">

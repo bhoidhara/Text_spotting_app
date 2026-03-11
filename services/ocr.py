@@ -62,16 +62,45 @@ def ocr_image(image, lang="eng"):
 
     conf_values = []
     low_conf_words = []
-    for word, conf in zip(data.get("text", []), data.get("conf", [])):
-        conf_value = safe_int(conf, -1)
+    line_confidence = []
+
+    texts = data.get("text", []) or []
+    confs = data.get("conf", []) or []
+    line_nums = data.get("line_num", []) or []
+    par_nums = data.get("par_num", []) or []
+    block_nums = data.get("block_num", []) or []
+
+    line_map = {}
+    for idx, word in enumerate(texts):
+        word = word.strip()
+        if not word:
+            continue
+        conf_value = safe_int(confs[idx] if idx < len(confs) else -1, -1)
         if conf_value >= 0:
             conf_values.append(conf_value)
-            if conf_value < 60 and word.strip():
-                low_conf_words.append(word.strip())
+            if conf_value < 60:
+                low_conf_words.append(word)
+        key = (
+            block_nums[idx] if idx < len(block_nums) else 0,
+            par_nums[idx] if idx < len(par_nums) else 0,
+            line_nums[idx] if idx < len(line_nums) else idx,
+        )
+        entry = line_map.setdefault(key, {"words": [], "conf": []})
+        entry["words"].append(word)
+        if conf_value >= 0:
+            entry["conf"].append(conf_value)
+
+    for key in sorted(line_map.keys()):
+        entry = line_map[key]
+        line_text = " ".join(entry["words"]).strip()
+        if not line_text:
+            continue
+        avg_line_conf = round(sum(entry["conf"]) / len(entry["conf"]), 2) if entry["conf"] else 0.0
+        line_confidence.append({"text": line_text, "conf": avg_line_conf})
 
     avg_conf = round(sum(conf_values) / len(conf_values), 2) if conf_values else 0.0
 
-    return text, avg_conf, low_conf_words
+    return text, avg_conf, low_conf_words, line_confidence
 
 
 def clean_text(text):
@@ -88,16 +117,34 @@ def clean_text(text):
         idx += 1
 
     normalized = []
+    buffer = []
     previous_blank = False
+    bullet_re = re.compile(r"^(\d+\.|[-*•])\s+")
+
     for line in cleaned_lines:
         line = re.sub(r"\s+", " ", line).strip()
         if not line:
+            if buffer:
+                normalized.append(" ".join(buffer).strip())
+                buffer = []
             if not previous_blank:
                 normalized.append("")
             previous_blank = True
             continue
-        normalized.append(line)
+
+        if bullet_re.match(line):
+            if buffer:
+                normalized.append(" ".join(buffer).strip())
+                buffer = []
+            normalized.append(line)
+            previous_blank = False
+            continue
+
+        buffer.append(line)
         previous_blank = False
+
+    if buffer:
+        normalized.append(" ".join(buffer).strip())
 
     return "\n".join(normalized).strip()
 

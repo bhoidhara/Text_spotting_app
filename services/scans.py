@@ -56,10 +56,12 @@ def normalize_scan(scan):
     scan.setdefault("tags", [])
     scan.setdefault("image_paths", [])
     scan.setdefault("low_confidence_words", [])
+    scan.setdefault("line_confidence", [])
     scan.setdefault("key_points", [])
     scan.setdefault("mcqs", [])
     scan.setdefault("confidence_avg", 0.0)
     scan.setdefault("intent", "auto")
+    scan.setdefault("mode", "auto")
     scan.setdefault("language", "unknown")
     scan.setdefault("extracted_text", "")
     scan.setdefault("cleaned_text", scan.get("extracted_text", ""))
@@ -107,7 +109,17 @@ def get_scan(scan_id):
 def upsert_scan(scan):
     try:
         client = require_db_client()
-        client.table("scans").upsert(scan).execute()
+        try:
+            client.table("scans").upsert(scan).execute()
+        except Exception as exc:
+            message = str(exc).lower()
+            if "column" in message and ("line_confidence" in message or "mode" in message):
+                slim_scan = dict(scan)
+                slim_scan.pop("line_confidence", None)
+                slim_scan.pop("mode", None)
+                client.table("scans").upsert(slim_scan).execute()
+            else:
+                raise
         return
     except Exception:
         if _supabase_only():

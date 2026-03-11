@@ -17,7 +17,7 @@
       <h3>Upload or Capture</h3>
       <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data" class="form">
         <label>Select images</label>
-        <input type="file" name="images" accept="image/*" multiple required />
+        <input type="file" name="images" multiple required />
 
         <label>OCR Language</label>
         <select name="lang">
@@ -32,7 +32,7 @@
           <label><input type="checkbox" name="autocorrect" checked /> Auto-correct (English)</label>
           <label><input type="checkbox" name="detect_intent" checked /> Intent detection</label>
           <label><input type="checkbox" name="student_mode" checked /> Student smart mode</label>
-          <label><input type="checkbox" name="privacy_mode" /> Privacy mode</label>
+          <label><input type="checkbox" name="privacy_mode" /> Privacy mode (No Data Stored / Local Processing)</label>
         </div>
 
         <div class="sniper">

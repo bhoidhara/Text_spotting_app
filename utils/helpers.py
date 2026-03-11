@@ -2,7 +2,19 @@ import os
 import re
 from datetime import datetime
 
-ALLOWED_EXT_DEFAULT = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp", ".heic", ".heif"}
+ALLOWED_EXT_DEFAULT = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".bmp",
+    ".tiff",
+    ".webp",
+    ".heic",
+    ".heif",
+    ".pdf",
+    ".txt",
+    ".docx",
+}
 
 
 def now_iso():

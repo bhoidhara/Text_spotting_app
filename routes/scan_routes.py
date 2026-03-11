@@ -75,7 +75,9 @@ def register_scan_routes(app):
         combined_text = []
         combined_conf = []
         combined_low_conf = []
+        combined_line_conf = []
         image_paths = []
+        page_number = 0
         scan_id = str(uuid4())
         safe_user = safe_slug(user_id)
         store_local = os.getenv("STORE_LOCAL_UPLOADS", "false").lower() not in {"false", "0", "no"}
@@ -95,7 +97,28 @@ def register_scan_routes(app):
                 warnings.append("Cloud storage not available; keeping files locally.")
 
 
-        for index, file in enumerate(files, start=1):
+        image_exts = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp", ".heic", ".heif"}
+
+        def _add_page(text, avg_conf=0.0, low_conf=None, line_conf=None):
+            nonlocal page_number
+            page_number += 1
+            page_text = (text or "").strip()
+            page_block = f"--- Page {page_number} ---\n{page_text}"
+            combined_text.append(page_block.strip())
+            combined_conf.append(avg_conf)
+            if low_conf:
+                combined_low_conf.extend(low_conf)
+            if line_conf:
+                for item in line_conf:
+                    combined_line_conf.append(
+                        {
+                            "page": page_number,
+                            "text": item.get("text", ""),
+                            "conf": item.get("conf", 0.0),
+                        }
+                    )
+
+        for file in files:
             if not file or not allowed_file(file.filename, current_app.config["ALLOWED_EXT"]):
                 warnings.append(f"Skipped unsupported file: {file.filename}")
                 continue
@@ -106,6 +129,113 @@ def register_scan_routes(app):
             local_rel_path = os.path.join(safe_user, scan_id, filename)
             file_path = os.path.join(upload_root, local_rel_path)
             file.save(file_path)
+
+            _, ext = os.path.splitext(file.filename.lower())
+
+            if ext in {".txt"}:
+                try:
+                    with open(file_path, "r", encoding="utf-8", errors="ignore") as handle:
+                        content = handle.read()
+                except Exception as exc:
+                    warnings.append(f"Failed to read {file.filename}: {exc}")
+                    content = ""
+                if content.strip():
+                    warnings.append(f"Imported text from {file.filename} (no OCR).")
+                    line_conf = [
+                        {"text": line.strip(), "conf": 100.0}
+                        for line in content.splitlines()
+                        if line.strip()
+                    ]
+                    _add_page(content, avg_conf=100.0, low_conf=[], line_conf=line_conf)
+                else:
+                    warnings.append(f"Empty text file: {file.filename}")
+
+                if privacy_mode and _supabase_only():
+                    try:
+                        os.remove(file_path)
+                    except Exception:
+                        pass
+                    return None, warnings, "Privacy mode requires local storage, but local is disabled."
+                if privacy_mode or not store_local:
+                    try:
+                        os.remove(file_path)
+                    except Exception:
+                        pass
+                continue
+
+            if ext in {".docx"}:
+                try:
+                    from docx import Document
+                except Exception as exc:
+                    warnings.append(f"DOCX support not installed: {exc}")
+                    continue
+                try:
+                    doc = Document(file_path)
+                    content = "\n".join(p.text for p in doc.paragraphs if p.text)
+                except Exception as exc:
+                    warnings.append(f"Failed to read {file.filename}: {exc}")
+                    content = ""
+                if content.strip():
+                    warnings.append(f"Imported text from {file.filename} (no OCR).")
+                    line_conf = [
+                        {"text": line.strip(), "conf": 100.0}
+                        for line in content.splitlines()
+                        if line.strip()
+                    ]
+                    _add_page(content, avg_conf=100.0, low_conf=[], line_conf=line_conf)
+                else:
+                    warnings.append(f"Empty DOCX file: {file.filename}")
+
+                if privacy_mode and _supabase_only():
+                    try:
+                        os.remove(file_path)
+                    except Exception:
+                        pass
+                    return None, warnings, "Privacy mode requires local storage, but local is disabled."
+                if privacy_mode or not store_local:
+                    try:
+                        os.remove(file_path)
+                    except Exception:
+                        pass
+                continue
+
+            if ext in {".pdf"}:
+                try:
+                    from pdf2image import convert_from_path
+                except Exception as exc:
+                    warnings.append(f"PDF support not installed: {exc}")
+                    continue
+                try:
+                    pages = convert_from_path(file_path, dpi=300)
+                except Exception as exc:
+                    warnings.append(f"Failed to read PDF {file.filename}: {exc}")
+                    pages = []
+
+                for page in pages:
+                    if crop_box:
+                        try:
+                            page = page.crop(crop_box)
+                        except Exception:
+                            pass
+                    try:
+                        page_text, avg_conf, low_conf, line_conf = ocr_image(page, lang=lang)
+                    except Exception as exc:
+                        warnings.append(f"OCR failed on {file.filename}: {exc}")
+                        continue
+                    _add_page(page_text, avg_conf=avg_conf, low_conf=low_conf, line_conf=line_conf)
+
+                if privacy_mode and _supabase_only():
+                    try:
+                        os.remove(file_path)
+                    except Exception:
+                        pass
+                    return None, warnings, "Privacy mode requires local storage, but local is disabled."
+                if privacy_mode or not store_local:
+                    try:
+                        os.remove(file_path)
+                    except Exception:
+                        pass
+                continue
 
             try:
                 image = Image.open(file_path)
@@ -120,55 +250,66 @@ def register_scan_routes(app):
                     pass
 
             try:
-                page_text, avg_conf, low_conf = ocr_image(image, lang=lang)
+                page_text, avg_conf, low_conf, line_conf = ocr_image(image, lang=lang)
             except Exception as exc:
                 warnings.append(f"OCR failed on {file.filename}: {exc}")
                 continue
 
-            page_block = f"--- Page {index} ---\n{page_text.strip()}"
-            combined_text.append(page_block.strip())
-            combined_conf.append(avg_conf)
-            combined_low_conf.extend(low_conf)
+            _add_page(page_text, avg_conf=avg_conf, low_conf=low_conf, line_conf=line_conf)
 
-            storage_path = local_rel_path.replace("\\", "/")
-            upload_ok = False
-            if storage_available:
-                try:
-                    upload_ok = upload_to_storage(file_path, storage_path) is not None
-                except Exception as exc:
-                    warnings.append(f"Storage upload failed; kept locally: {exc}")
-                    upload_ok = False
+            if ext in image_exts:
+                storage_path = local_rel_path.replace("\\", "/")
+                upload_ok = False
+                if storage_available:
+                    try:
+                        upload_ok = upload_to_storage(file_path, storage_path) is not None
+                    except Exception as exc:
+                        warnings.append(f"Storage upload failed; kept locally: {exc}")
+                        upload_ok = False
 
-            if not privacy_mode:
-                image_paths.append(storage_path)
-            elif _supabase_only():
-                try:
-                    os.remove(file_path)
-                except Exception:
-                    pass
-                return None, warnings, "Privacy mode requires local storage, but local is disabled."
+                if not privacy_mode:
+                    image_paths.append(storage_path)
+                elif _supabase_only():
+                    try:
+                        os.remove(file_path)
+                    except Exception:
+                        pass
+                    return None, warnings, "Privacy mode requires local storage, but local is disabled."
 
-            # Remove local copy when privacy mode, or when safely uploaded to cloud
-            delete_local = False
-            if privacy_mode:
-                delete_local = True
-            elif storage_available and upload_ok and not store_local:
-                delete_local = True
+                # Remove local copy when privacy mode, or when safely uploaded to cloud
+                delete_local = False
+                if privacy_mode:
+                    delete_local = True
+                elif storage_available and upload_ok and not store_local:
+                    delete_local = True
 
-            if delete_local:
-                try:
-                    os.remove(file_path)
-                except Exception:
-                    pass
+                if delete_local:
+                    try:
+                        os.remove(file_path)
+                    except Exception:
+                        pass
 
         if not combined_text:
             if warnings:
                 return None, warnings, f"No valid images were processed. {warnings[0]}"
-            return None, warnings, "No valid images were processed. Please upload JPG or PNG images."
+            return (
+                None,
+                warnings,
+                "No valid files were processed. Please upload images (JPG/PNG/HEIC), PDF, DOCX, or TXT.",
+            )
 
         extracted_text = "\n\n".join(combined_text).strip()
         cleaned_text = clean_text(extracted_text) if cleanup else extracted_text
         intent = detect_intent(cleaned_text if detect_intent_flag else extracted_text) if detect_intent_flag else "auto"
+        mode = "auto"
+        if intent == "document":
+            mode = "pdf_doc"
+        elif intent == "notes":
+            mode = "study"
+        elif intent == "form":
+            mode = "autofill"
+        elif intent == "quote":
+            mode = "creative"
         language = detect_language(cleaned_text)
         if autocorrect:
             cleaned_text = auto_correct_text(cleaned_text, language)
@@ -189,8 +330,10 @@ def register_scan_routes(app):
             "cleaned_text": cleaned_text,
             "language": language,
             "intent": intent,
+            "mode": mode,
             "confidence_avg": confidence_avg,
             "low_confidence_words": combined_low_conf[:50],
+            "line_confidence": combined_line_conf,
             "summary": summary,
             "key_points": key_points,
             "mcqs": mcqs,

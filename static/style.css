@@ -582,6 +582,51 @@ body.theme-dark .text-block {
   border-color: var(--auth-line);
 }
 
+.confidence-lines {
+  margin-top: 12px;
+  display: grid;
+  gap: 6px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.confidence-line {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  gap: 8px;
+  align-items: start;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #fffdfa;
+  font-size: 13px;
+}
+
+.confidence-line.low {
+  background: #fff2e8;
+  border-color: #f3c7a6;
+}
+
+body.theme-dark .confidence-line {
+  background: #0f1218;
+  border-color: var(--auth-line);
+}
+
+body.theme-dark .confidence-line.low {
+  background: rgba(234, 179, 8, 0.16);
+  border-color: rgba(234, 179, 8, 0.45);
+}
+
+.confidence-score {
+  font-weight: 600;
+}
+
+.confidence-page {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .image-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
