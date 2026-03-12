@@ -77,9 +77,14 @@ def ocr_image(image, lang="eng"):
 
     processed = preprocess_image(image)
     text = pytesseract.image_to_string(processed, lang=lang)
+    data_source = processed
+    if not text.strip():
+        # Fallback to the original image if preprocessing wiped useful detail.
+        text = pytesseract.image_to_string(image, lang=lang)
+        data_source = image
 
     try:
-        data = pytesseract.image_to_data(processed, lang=lang, output_type=pytesseract.Output.DICT)
+        data = pytesseract.image_to_data(data_source, lang=lang, output_type=pytesseract.Output.DICT)
     except Exception:
         data = {"text": [], "conf": []}
 

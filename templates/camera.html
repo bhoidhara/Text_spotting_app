@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% set title = "VisionText | Real-Time Camera" %}
+{% set body_class = "app-shell theme-dark" %}
+
+{% block content %}
+<section class="app-screen camera-screen">
+  <div class="app-tabs">
+    <a class="app-tab" href="{{ url_for('dashboard') }}">Upload Image</a>
+    <span class="app-tab active">Real-Time Camera</span>
+    <a class="app-tab" href="{{ url_for('history') }}">History</a>
+  </div>
+
+  <div class="card camera-card">
+    <div class="camera-header">
+      <div>
+        <h3>Real-Time Text Recognition</h3>
+        <p class="small">Use your camera to scan text instantly.</p>
+      </div>
+      <button class="button primary" type="button" id="camera-start">Start Camera</button>
+    </div>
+
+    <label>Language</label>
+    <select name="camera_lang">
+      <option value="guj">Gujarati (Gujarati)</option>
+      <option value="eng">English</option>
+      <option value="hin">Hindi</option>
+      <option value="eng+hin+guj">Auto (EN + HI + GU)</option>
+    </select>
+
+    <label>Camera Source</label>
+    <select name="camera_source">
+      <option value="auto">Auto detect</option>
+      <option value="rear">Rear camera</option>
+      <option value="front">Front camera</option>
+    </select>
+
+    <button class="button ghost" type="button" id="camera-enable">Enable Camera Access</button>
+    <p class="small" id="camera-status">Permission: Ask every time</p>
+
+    <div class="camera-preview" id="camera-preview">
+      <video id="camera-video" autoplay muted playsinline></video>
+      <p>Click "Start Camera" to begin</p>
+    </div>
+    <canvas id="camera-canvas" class="camera-canvas" aria-hidden="true"></canvas>
+  </div>
+</section>
+{% endblock %}

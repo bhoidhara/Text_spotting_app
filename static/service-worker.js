@@ -1,10 +1,13 @@
-const CACHE_NAME = "visiontext-v4";
+const CACHE_NAME = "visiontext-v7";
 const STATIC_ASSETS = [
   "/",
   "/login",
   "/signup",
   "/dashboard",
+  "/camera",
   "/history",
+  "/settings",
+  "/profile",
   "/static/style.css",
   "/static/script.js",
   "/manifest.webmanifest",

@@ -21,12 +21,12 @@
 })();
 
 (function () {
-  const flashes = document.querySelectorAll(".flash");
+  const flashes = document.querySelectorAll(".flash-success");
   if (!flashes.length) {
     return;
   }
-  const hideAfterMs = 3500;
-  const removeAfterMs = 4200;
+  const hideAfterMs = 3000;
+  const removeAfterMs = 3800;
   setTimeout(() => {
     flashes.forEach((flash) => flash.classList.add("hide"));
   }, hideAfterMs);
@@ -226,4 +226,135 @@
       resetSelection();
     });
   }
+})();
+
+(function () {
+  const startBtn = document.getElementById("camera-start");
+  const enableBtn = document.getElementById("camera-enable");
+  const video = document.getElementById("camera-video");
+  const canvas = document.getElementById("camera-canvas");
+  const preview = document.getElementById("camera-preview");
+  const status = document.getElementById("camera-status");
+  const langSelect = document.querySelector("select[name='camera_lang']");
+  const sourceSelect = document.querySelector("select[name='camera_source']");
+
+  if (!startBtn || !enableBtn || !video || !canvas || !preview) {
+    return;
+  }
+
+  let stream = null;
+  let scanning = false;
+
+  const setStatus = (message) => {
+    if (status) {
+      status.textContent = message;
+    }
+  };
+
+  const stopStream = () => {
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      stream = null;
+    }
+  };
+
+  const getConstraints = () => {
+    const source = sourceSelect ? sourceSelect.value : "auto";
+    let facingMode = { ideal: "environment" };
+    if (source === "front") {
+      facingMode = "user";
+    } else if (source === "rear") {
+      facingMode = { ideal: "environment" };
+    }
+    return { video: { facingMode }, audio: false };
+  };
+
+  const enableCamera = async () => {
+    stopStream();
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(getConstraints());
+      video.srcObject = stream;
+      await video.play();
+      preview.classList.add("active");
+      setStatus("Camera ready. Tap Start Camera to scan.");
+      startBtn.textContent = "Scan Now";
+    } catch (err) {
+      setStatus("Camera permission denied or unavailable.");
+    }
+  };
+
+  enableBtn.addEventListener("click", () => {
+    enableCamera();
+  });
+
+  startBtn.addEventListener("click", async () => {
+    if (scanning) {
+      return;
+    }
+
+    if (!stream) {
+      await enableCamera();
+      if (!stream) {
+        return;
+      }
+    }
+
+    const width = video.videoWidth;
+    const height = video.videoHeight;
+    if (!width || !height) {
+      setStatus("Camera not ready. Try again.");
+      return;
+    }
+
+    scanning = true;
+    startBtn.disabled = true;
+    setStatus("Scanning...");
+
+    const ctx = canvas.getContext("2d");
+    canvas.width = width;
+    canvas.height = height;
+    ctx.drawImage(video, 0, 0, width, height);
+
+    try {
+      const blob = await new Promise((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.92)
+      );
+      if (!blob) {
+        throw new Error("Capture failed.");
+      }
+
+      const formData = new FormData();
+      formData.append("images", blob, "camera.jpg");
+      formData.append("lang", langSelect ? langSelect.value : "eng");
+      formData.append("cleanup", "on");
+      formData.append("autocorrect", "on");
+      formData.append("detect_intent", "on");
+      formData.append("student_mode", "on");
+
+      const response = await fetch("/api/scans", {
+        method: "POST",
+        body: formData,
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || "OCR failed. Try again.");
+      }
+
+      const scanId = payload.data && payload.data.id;
+      if (scanId) {
+        window.location.href = `/result/${scanId}`;
+        return;
+      }
+      setStatus("Scan complete. Open History to view results.");
+    } catch (err) {
+      setStatus(err && err.message ? err.message : "Scan failed.");
+    } finally {
+      scanning = false;
+      startBtn.disabled = false;
+    }
+  });
+
+  window.addEventListener("beforeunload", () => {
+    stopStream();
+  });
 })();

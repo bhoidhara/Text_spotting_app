@@ -9,7 +9,17 @@
       <h2>Ready to scan?</h2>
       <p class="subtitle">Upload images, run OCR, edit text, and save to your Vision Vault.</p>
     </div>
-    <div class="user-chip">{{ user_email }}</div>
+    <div class="dashboard-actions">
+      <a class="button ghost small" href="{{ url_for('profile') }}">Profile</a>
+      <a class="button ghost small" href="{{ url_for('settings') }}">Settings</a>
+      <div class="user-chip">{{ user_email }}</div>
+    </div>
+  </div>
+
+  <div class="app-tabs">
+    <span class="app-tab active">Upload Image</span>
+    <a class="app-tab" href="{{ url_for('camera') }}">Real-Time Camera</a>
+    <a class="app-tab" href="{{ url_for('history') }}">History</a>
   </div>
 
   {% if latest_scan %}

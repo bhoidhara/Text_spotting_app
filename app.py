@@ -7,6 +7,7 @@ from flask import Flask, redirect, render_template, send_from_directory, url_for
 from routes.auth_routes import register_auth_routes
 from routes.history_routes import register_history_routes
 from routes.scan_routes import register_scan_routes
+from routes.settings_routes import register_settings_routes
 from utils.helpers import ALLOWED_EXT_DEFAULT
 
 load_dotenv()
@@ -35,6 +36,7 @@ def index():
 register_auth_routes(app)
 register_scan_routes(app)
 register_history_routes(app)
+register_settings_routes(app)
 
 
 @app.route("/service-worker.js")

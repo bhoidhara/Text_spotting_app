@@ -11,6 +11,12 @@
     </div>
   </div>
 
+  <div class="app-tabs">
+    <a class="app-tab" href="{{ url_for('dashboard') }}">Upload Image</a>
+    <a class="app-tab" href="{{ url_for('camera') }}">Real-Time Camera</a>
+    <span class="app-tab active">History</span>
+  </div>
+
   <form method="get" class="form inline">
     <input type="text" name="q" placeholder="Search text" value="{{ query }}" />
     <select name="tag">

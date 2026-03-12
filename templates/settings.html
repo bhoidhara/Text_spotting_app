@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% set title = "VisionText | Settings" %}
+{% set body_class = "app-shell theme-dark" %}
+
+{% block content %}
+<section class="app-screen settings-screen">
+  <div class="screen-header">
+    <a class="icon-button" href="{{ url_for('dashboard') }}" aria-label="Back">&larr;</a>
+    <h2>Settings</h2>
+  </div>
+
+  <form method="post" class="settings-shell" action="{{ url_for('settings') }}">
+    <div class="settings-block">
+      <div class="section-header">
+        <div class="section-icon">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3.5a6.5 6.5 0 1 0 6.5 6.5A6.5 6.5 0 0 0 12 3.5Zm0 11a4.5 4.5 0 1 1 4.5-4.5 4.5 4.5 0 0 1-4.5 4.5Zm8.2 1.7-1.7-1a8.9 8.9 0 0 0 .4-2.2 8.9 8.9 0 0 0-.4-2.2l1.7-1a1 1 0 0 0 .4-1.3l-1.2-2a1 1 0 0 0-1.3-.4l-1.7 1a9.2 9.2 0 0 0-1.9-1.1l-.3-1.9a1 1 0 0 0-1-.8h-2.4a1 1 0 0 0-1 .8l-.3 1.9a9.2 9.2 0 0 0-1.9 1.1l-1.7-1a1 1 0 0 0-1.3.4l-1.2 2a1 1 0 0 0 .4 1.3l1.7 1a8.9 8.9 0 0 0-.4 2.2 8.9 8.9 0 0 0 .4 2.2l-1.7 1a1 1 0 0 0-.4 1.3l1.2 2a1 1 0 0 0 1.3.4l1.7-1a9.2 9.2 0 0 0 1.9 1.1l.3 1.9a1 1 0 0 0 1 .8h2.4a1 1 0 0 0 1-.8l.3-1.9a9.2 9.2 0 0 0 1.9-1.1l1.7 1a1 1 0 0 0 1.3-.4l1.2-2a1 1 0 0 0-.4-1.3Z"></path>
+          </svg>
+        </div>
+        <div>
+          <h4>Appearance</h4>
+          <p class="small">Customize how the app looks</p>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-title">Theme</div>
+          <div class="settings-desc">Dark mode</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" name="theme_dark" {% if settings.theme == "dark" %}checked{% endif %} />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="settings-block">
+      <div class="section-header">
+        <div class="section-icon">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7h10a1 1 0 0 0 0-2H4a1 1 0 0 0 0 2Zm0 6h16a1 1 0 0 0 0-2H4a1 1 0 0 0 0 2Zm0 6h12a1 1 0 0 0 0-2H4a1 1 0 0 0 0 2Z"></path>
+          </svg>
+        </div>
+        <div>
+          <h4>General</h4>
+          <p class="small">App preferences</p>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-title">Notifications</div>
+          <div class="settings-desc">Stay updated on important scans</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" name="notifications" {% if settings.notifications %}checked{% endif %} />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-title">Auto-save scans</div>
+          <div class="settings-desc">Automatically save scans to history</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" name="autosave" {% if settings.autosave %}checked{% endif %} />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <button class="button ghost small" type="submit">Save settings</button>
+    </div>
+
+    <div class="settings-block">
+      <div class="section-header">
+        <div class="section-icon">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 5h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8l-4 4V7a2 2 0 0 1 2-2Zm2 4a1 1 0 0 0 1 1h10a1 1 0 0 0 0-2H7a1 1 0 0 0-1 1Zm0 4a1 1 0 0 0 1 1h7a1 1 0 0 0 0-2H7a1 1 0 0 0-1 1Z"></path>
+          </svg>
+        </div>
+        <div>
+          <h4>Send Feedback</h4>
+          <p class="small">Help us improve VisionText</p>
+        </div>
+      </div>
+      <label>Category</label>
+      <select name="feedback_category">
+        {% for option in ["General", "OCR Quality", "Camera", "Export", "UI/UX"] %}
+          <option value="{{ option }}" {% if settings.feedback_category == option %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+      <div>
+        <label>Rating</label>
+        <div class="rating-stars">
+          {% for value in [5, 4, 3, 2, 1] %}
+            <input type="radio" id="rating-{{ value }}" name="feedback_rating" value="{{ value }}" {% if settings.feedback_rating == value %}checked{% endif %} />
+            <label for="rating-{{ value }}" title="{{ value }} stars">&#9733;</label>
+          {% endfor %}
+        </div>
+      </div>
+      <label>Your Feedback</label>
+      <textarea name="feedback_text" rows="3" placeholder="Tell us what you think..."></textarea>
+      <button class="button primary" type="submit">Submit Feedback</button>
+    </div>
+
+    <div class="settings-block">
+      <div class="section-header">
+        <div class="section-icon">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 4h6a1 1 0 0 1 0 2H7v12h4a1 1 0 0 1 0 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm13.7 8.7-3.3 3.3a1 1 0 1 1-1.4-1.4l1.6-1.6H11a1 1 0 0 1 0-2h4.6l-1.6-1.6a1 1 0 0 1 1.4-1.4l3.3 3.3a1 1 0 0 1 0 1.4Z"></path>
+          </svg>
+        </div>
+        <div>
+          <h4>Account</h4>
+          <p class="small">Manage your session</p>
+        </div>
+      </div>
+      <a class="button danger" href="{{ url_for('logout') }}">Log Out</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

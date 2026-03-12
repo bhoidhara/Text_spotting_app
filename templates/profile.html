@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% set title = "VisionText | Profile" %}
+{% set body_class = "app-shell theme-dark" %}
+
+{% block content %}
+<section class="app-screen profile-screen">
+  <div class="screen-header">
+    <a class="icon-button" href="{{ url_for('settings') }}" aria-label="Back">&larr;</a>
+    <h2>Edit Profile</h2>
+  </div>
+
+  <form method="post" class="profile-shell" action="{{ url_for('profile') }}">
+    <div class="profile-card">
+      <div class="avatar-wrap">
+        <div class="avatar">
+          <span class="avatar-initial">{{ (profile.full_name or user_email or "U")[0]|upper }}</span>
+          <span class="avatar-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M9.5 6.5 11 4h2l1.5 2.5H18a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2ZM12 9a4 4 0 1 0 4 4 4 4 0 0 0-4-4Zm0 6.5A2.5 2.5 0 1 1 14.5 13 2.5 2.5 0 0 1 12 15.5Z"></path>
+            </svg>
+          </span>
+        </div>
+        <div class="profile-email">Tap to change photo</div>
+        <div class="profile-subtitle">{{ user_email }}</div>
+      </div>
+    </div>
+
+    <div class="profile-card">
+      <h4>Personal Information</h4>
+      <div class="form">
+        <label>Full Name</label>
+        <input type="text" name="full_name" value="{{ profile.full_name }}" placeholder="Your name" />
+
+        <label>Username</label>
+        <input type="text" name="username" value="{{ profile.username }}" placeholder="username" />
+
+        <label>Phone</label>
+        <input type="tel" name="phone" value="{{ profile.phone }}" placeholder="+91 00000 00000" />
+
+        <label>Bio</label>
+        <textarea name="bio" rows="3" placeholder="Tell us about you...">{{ profile.bio }}</textarea>
+      </div>
+      <button class="button primary" type="submit">Save Profile</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

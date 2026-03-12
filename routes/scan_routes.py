@@ -49,12 +49,17 @@ def register_scan_routes(app):
         crop_w = request.form.get("crop_w")
         crop_h = request.form.get("crop_h")
         if crop_x and crop_y and crop_w and crop_h:
-            return (
-                safe_int(crop_x),
-                safe_int(crop_y),
-                safe_int(crop_x) + safe_int(crop_w),
-                safe_int(crop_y) + safe_int(crop_h),
-            )
+            x = safe_int(crop_x)
+            y = safe_int(crop_y)
+            w = safe_int(crop_w)
+            h = safe_int(crop_h)
+            if w <= 1 or h <= 1:
+                return None
+            if x < 0:
+                x = 0
+            if y < 0:
+                y = 0
+            return (x, y, x + w, y + h)
         return None
 
     def _process_upload(files, user_id, use_flash=True):
@@ -99,10 +104,16 @@ def register_scan_routes(app):
 
         image_exts = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp", ".heic", ".heif"}
 
+        empty_pages = 0
+
         def _add_page(text, avg_conf=0.0, low_conf=None, line_conf=None):
             nonlocal page_number
+            nonlocal empty_pages
             page_number += 1
             page_text = (text or "").strip()
+            if not page_text:
+                empty_pages += 1
+                return
             page_block = f"--- Page {page_number} ---\n{page_text}"
             combined_text.append(page_block.strip())
             combined_conf.append(avg_conf)
@@ -292,6 +303,12 @@ def register_scan_routes(app):
         if not combined_text:
             if warnings:
                 return None, warnings, f"No valid images were processed. {warnings[0]}"
+            if empty_pages:
+                return (
+                    None,
+                    warnings,
+                    "OCR ran but no readable text was found. Try a clearer image or check OCR setup.",
+                )
             return (
                 None,
                 warnings,
