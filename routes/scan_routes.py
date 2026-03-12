@@ -132,7 +132,21 @@ def register_scan_routes(app):
                     )
 
         for file in files:
-            if not file or not allowed_file(file.filename, current_app.config["ALLOWED_EXT"]):
+            mime = (getattr(file, "mimetype", "") or "").lower()
+            is_image_mime = mime.startswith("image/")
+            is_text_mime = mime.startswith("text/") or mime in {
+                "application/json",
+                "application/xml",
+                "application/rtf",
+                "application/x-rtf",
+                "text/rtf",
+                "text/csv",
+            }
+            if not file or (
+                not allowed_file(file.filename, current_app.config["ALLOWED_EXT"])
+                and not is_image_mime
+                and not is_text_mime
+            ):
                 warnings.append(f"Skipped unsupported file: {file.filename}")
                 continue
 
@@ -145,7 +159,7 @@ def register_scan_routes(app):
 
             _, ext = os.path.splitext(file.filename.lower())
 
-            if ext in {".txt"}:
+            if ext in {".txt"} or is_text_mime:
                 try:
                     with open(file_path, "r", encoding="utf-8", errors="ignore") as handle:
                         content = handle.read()
@@ -219,7 +233,8 @@ def register_scan_routes(app):
                     warnings.append(f"PDF support not installed: {exc}")
                     continue
                 try:
-                    pages = convert_from_path(file_path, dpi=300)
+                    pdf_dpi = 300 if advanced_ocr else 160 if fast_ocr else 220
+                    pages = convert_from_path(file_path, dpi=pdf_dpi)
                 except Exception as exc:
                     warnings.append(f"Failed to read PDF {file.filename}: {exc}")
                     pages = []
@@ -411,7 +426,14 @@ def register_scan_routes(app):
             return redirect(url_for("login"))
 
         user_id = get_user_id()
-        scan, warnings, error = _process_upload(request.files.getlist("images"), user_id, use_flash=True)
+        try:
+            scan, warnings, error = _process_upload(
+                request.files.getlist("images"), user_id, use_flash=True
+            )
+        except Exception as exc:
+            current_app.logger.exception("OCR upload failed")
+            flash(f"OCR failed: {exc}", "warn")
+            return redirect(url_for("dashboard"))
         if error:
             flash(error, "warn")
             return redirect(url_for("dashboard"))
@@ -439,7 +461,13 @@ def register_scan_routes(app):
         user_id = _api_user_id()
         if not user_id:
             return jsonify({"ok": False, "error": "Unauthorized"}), 401
-        scan, warnings, error = _process_upload(request.files.getlist("images"), user_id, use_flash=False)
+        try:
+            scan, warnings, error = _process_upload(
+                request.files.getlist("images"), user_id, use_flash=False
+            )
+        except Exception as exc:
+            current_app.logger.exception("API OCR failed")
+            return jsonify({"ok": False, "error": f"OCR failed: {exc}"}), 500
         if error:
             return jsonify({"ok": False, "error": error, "warnings": warnings}), 400
         return jsonify({"ok": True, "data": scan, "warnings": warnings})

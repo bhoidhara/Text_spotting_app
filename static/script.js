@@ -391,16 +391,24 @@
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000);
+      const timeoutId = setTimeout(() => controller.abort(), 35000);
       const response = await fetch("/api/scans", {
         method: "POST",
         body: formData,
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
-      const payload = await response.json().catch(() => ({}));
+      const rawText = await response.text();
+      let payload = {};
+      try {
+        payload = rawText ? JSON.parse(rawText) : {};
+      } catch (err) {
+        payload = {};
+      }
       if (!response.ok || !payload.ok) {
-        const errorMessage = payload.error || "OCR failed. Try again.";
+        const safeText = rawText && rawText.length < 180 && !rawText.includes("<") ? rawText : "";
+        const errorMessage =
+          payload.error || safeText || `OCR failed (HTTP ${response.status}). Try again.`;
         const noReadable = String(errorMessage).toLowerCase().includes("no readable");
         if (autoMode && noReadable) {
           if (autoAttempts < MAX_AUTO_ATTEMPTS) {
@@ -443,7 +451,7 @@
       setStatus("Scan complete. Result shown below.");
     } catch (err) {
       if (err && err.name === "AbortError") {
-        setStatus("Server busy. Try again.");
+        setStatus("Server busy or slow. Please try again.");
       } else {
         setStatus(err && err.message ? err.message : "Scan failed.");
       }
@@ -609,16 +617,25 @@
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000);
+      const timeoutId = setTimeout(() => controller.abort(), 35000);
       const response = await fetch("/api/scans", {
         method: "POST",
         body: formData,
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
-      const payload = await response.json().catch(() => ({}));
+      const rawText = await response.text();
+      let payload = {};
+      try {
+        payload = rawText ? JSON.parse(rawText) : {};
+      } catch (err) {
+        payload = {};
+      }
       if (!response.ok || !payload.ok) {
-        throw new Error(payload.error || "OCR failed. Try again.");
+        const safeText = rawText && rawText.length < 180 && !rawText.includes("<") ? rawText : "";
+        const errorMessage =
+          payload.error || safeText || `OCR failed (HTTP ${response.status}). Try again.`;
+        throw new Error(errorMessage);
       }
 
       const scan = payload.data || {};
@@ -639,7 +656,7 @@
       setStatus(warnings.length ? `OCR complete. ${warnings[0]}` : "OCR complete.");
     } catch (err) {
       if (err && err.name === "AbortError") {
-        setStatus("Server busy. Try again.");
+        setStatus("Server busy or slow. Please try again.");
       } else {
         setStatus(err && err.message ? err.message : "Upload failed.");
       }

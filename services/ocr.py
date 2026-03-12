@@ -69,6 +69,27 @@ def preprocess_image(image):
     return image
 
 
+def _downscale_image(image, max_side):
+    try:
+        width, height = image.size
+    except Exception:
+        return image
+    if not width or not height:
+        return image
+    scale = min(1.0, max_side / max(width, height))
+    if scale >= 1.0:
+        return image
+    new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
+    try:
+        resample = getattr(image, "LANCZOS", 1)
+        return image.resize(new_size, resample=resample)
+    except Exception:
+        try:
+            return image.resize(new_size)
+        except Exception:
+            return image
+
+
 def _preprocess_variants(image):
     variants = []
     base = image
@@ -174,6 +195,15 @@ def ocr_image(image, lang="eng", advanced=False, fast=False):
         raise RuntimeError("pytesseract is not installed.")
     if status.get("error"):
         raise RuntimeError(f"Tesseract is not available: {status['error']}")
+
+    if ImageOps and hasattr(ImageOps, "exif_transpose"):
+        try:
+            image = ImageOps.exif_transpose(image)
+        except Exception:
+            pass
+
+    max_side = 1600 if fast else 2400 if advanced else 2000
+    image = _downscale_image(image, max_side)
 
     variants = _preprocess_variants(image)
     if fast:

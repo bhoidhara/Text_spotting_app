@@ -6,7 +6,9 @@ ALLOWED_EXT_DEFAULT = {
     ".png",
     ".jpg",
     ".jpeg",
+    ".gif",
     ".bmp",
+    ".tif",
     ".tiff",
     ".webp",
     ".heic",
@@ -14,6 +16,10 @@ ALLOWED_EXT_DEFAULT = {
     ".pdf",
     ".txt",
     ".docx",
+    ".csv",
+    ".rtf",
+    ".json",
+    ".xml",
 }
 
 
