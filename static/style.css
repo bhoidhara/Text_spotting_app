@@ -153,6 +153,7 @@ body.auth-page .page {
 .subtitle {
   color: var(--muted);
   line-height: 1.6;
+  margin: 6px 0 0;
 }
 
 body.theme-dark .subtitle {
@@ -245,6 +246,7 @@ body.theme-dark .scan-output {
   justify-content: center;
   gap: 6px;
   transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
+  min-height: 40px;
 }
 
 .button.primary {
@@ -334,6 +336,7 @@ textarea {
   border: 1px solid var(--line);
   font-family: inherit;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  font-size: 14.5px;
 }
 
 input[type="file"] {
@@ -474,6 +477,7 @@ body.auth-page .helper {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  margin-bottom: 8px;
 }
 
 .user-chip {
@@ -494,6 +498,7 @@ body.theme-dark .user-chip {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 20px;
   margin-top: 24px;
+  align-items: start;
 }
 
 .grid-two > .card {
@@ -511,6 +516,25 @@ body.theme-dark .user-chip {
   padding: 20px;
   border-radius: 16px;
   box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+}
+
+.card h3 {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+}
+
+.card h4 {
+  margin: 18px 0 8px;
+  font-size: 0.95rem;
+}
+
+.card p {
+  margin: 0 0 10px;
+}
+
+.card p:last-child {
+  margin-bottom: 0;
 }
 
 .scan-list {
