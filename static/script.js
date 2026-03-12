@@ -245,6 +245,8 @@
   let stream = null;
   let scanning = false;
   const isMobile = window.matchMedia("(max-width: 700px)").matches;
+  let autoAttempts = 0;
+  const MAX_AUTO_ATTEMPTS = 3;
 
   const setStatus = (message) => {
     if (status) {
@@ -297,6 +299,7 @@
       setStatus(autoScan && isMobile ? "Camera ready. Auto scan starting..." : "Camera ready. Tap Start Camera to scan.");
       startBtn.textContent = "Scan Now";
       if (autoScan && isMobile) {
+        autoAttempts = 0;
         setTimeout(() => {
           captureAndScan(true);
         }, 700);
@@ -339,7 +342,7 @@
 
     try {
       const blob = await new Promise((resolve) =>
-        canvas.toBlob(resolve, "image/jpeg", 0.92)
+        canvas.toBlob(resolve, "image/jpeg", 0.98)
       );
       if (!blob) {
         throw new Error("Capture failed.");
@@ -360,7 +363,20 @@
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ok) {
-        throw new Error(payload.error || "OCR failed. Try again.");
+        const errorMessage = payload.error || "OCR failed. Try again.";
+        if (
+          autoMode &&
+          autoAttempts < MAX_AUTO_ATTEMPTS &&
+          String(errorMessage).toLowerCase().includes("no readable")
+        ) {
+          autoAttempts += 1;
+          scanning = false;
+          startBtn.disabled = false;
+          setStatus("Auto scan retrying...");
+          setTimeout(() => captureAndScan(true), 1200);
+          return;
+        }
+        throw new Error(errorMessage);
       }
 
       const scanId = payload.data && payload.data.id;
