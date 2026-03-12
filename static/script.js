@@ -667,3 +667,65 @@
     }
   });
 })();
+
+(function () {
+  const installBtn = document.getElementById("install-button");
+  if (!installBtn) {
+    return;
+  }
+
+  const isStandalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone;
+  if (isStandalone) {
+    installBtn.hidden = true;
+    return;
+  }
+
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  let deferredPrompt = null;
+
+  const showInstall = () => {
+    installBtn.hidden = false;
+    installBtn.disabled = false;
+  };
+
+  const hideInstall = () => {
+    installBtn.hidden = true;
+  };
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredPrompt = event;
+    showInstall();
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredPrompt = null;
+    hideInstall();
+  });
+
+  if (isIos) {
+    showInstall();
+  }
+
+  installBtn.addEventListener("click", async () => {
+    if (isIos && !deferredPrompt) {
+      alert('iPhone/iPad: Safari menu > "Add to Home Screen" se install karein.');
+      return;
+    }
+
+    if (!deferredPrompt) {
+      installBtn.textContent = "Use browser menu";
+      setTimeout(() => {
+        installBtn.textContent = "Install App";
+      }, 1600);
+      return;
+    }
+
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    hideInstall();
+  });
+})();

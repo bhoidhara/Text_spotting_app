@@ -39,10 +39,22 @@
     <h3>Scan Details</h3>
     <div class="scan-details-grid">
       <div class="scan-meta">
-        <div class="scan-meta-row"><span>Source:</span> {{ scan.source_label }}</div>
-        <div class="scan-meta-row"><span>File:</span> {{ scan.file_name }}</div>
-        <div class="scan-meta-row"><span>Date:</span> {{ scan.created_at }}</div>
-        <div class="scan-meta-row"><span>Words:</span> {{ scan.word_count }}</div>
+        <div class="scan-meta-row">
+          <span>Source:</span>
+          <span class="scan-meta-value">{{ scan.source_label }}</span>
+        </div>
+        <div class="scan-meta-row">
+          <span>File:</span>
+          <span class="scan-meta-value">{{ scan.file_name }}</span>
+        </div>
+        <div class="scan-meta-row">
+          <span>Date:</span>
+          <span class="scan-meta-value">{{ scan.created_at }}</span>
+        </div>
+        <div class="scan-meta-row">
+          <span>Words:</span>
+          <span class="scan-meta-value">{{ scan.word_count }}</span>
+        </div>
       </div>
       <div>
         <label>Extracted Text</label>
@@ -126,6 +138,14 @@
           <option value="en">English</option>
           <option value="hi">Hindi</option>
           <option value="gu">Gujarati</option>
+          <option value="mr">Marathi</option>
+          <option value="bn">Bengali</option>
+          <option value="ta">Tamil</option>
+          <option value="te">Telugu</option>
+          <option value="kn">Kannada</option>
+          <option value="ml">Malayalam</option>
+          <option value="pa">Punjabi</option>
+          <option value="ur">Urdu</option>
         </select>
         <button class="button ghost" type="submit">Translate</button>
       </form>
