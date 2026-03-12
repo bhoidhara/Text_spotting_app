@@ -29,6 +29,7 @@ body {
   color: var(--ink);
   background: radial-gradient(circle at top left, #fcefe3 0%, #f6f1e7 45%, #efe6d9 100%);
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 body.auth-page {
@@ -862,6 +863,22 @@ body.theme-dark .muted {
 }
 
 @media (max-width: 520px) {
+  .page {
+    padding: 22px 4vw 48px;
+  }
+
+  .grid-two {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    width: 100%;
+  }
+
+  input[type="file"] {
+    width: 100%;
+  }
+
   .grid-four {
     grid-template-columns: 1fr;
   }
