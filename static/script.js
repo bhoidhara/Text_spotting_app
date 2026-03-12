@@ -21,6 +21,21 @@
 })();
 
 (function () {
+  const flashes = document.querySelectorAll(".flash");
+  if (!flashes.length) {
+    return;
+  }
+  const hideAfterMs = 3500;
+  const removeAfterMs = 4200;
+  setTimeout(() => {
+    flashes.forEach((flash) => flash.classList.add("hide"));
+  }, hideAfterMs);
+  setTimeout(() => {
+    flashes.forEach((flash) => flash.remove());
+  }, removeAfterMs);
+})();
+
+(function () {
   const formatButtons = document.querySelectorAll("[data-copy-format]");
   if (!formatButtons.length) {
     return;
