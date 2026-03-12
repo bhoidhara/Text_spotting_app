@@ -140,6 +140,14 @@ def register_auth_routes(app):
             db_ok = db_ok or False
             storage_ok = storage_ok or False
 
+        ocr_info = {}
+        try:
+            from services.ocr import tesseract_status
+
+            ocr_info = tesseract_status()
+        except Exception:
+            ocr_info = {"error": "OCR status check failed."}
+
         return jsonify(
             {
                 "env": {"url": env_url, "anon_key": env_anon, "service_key": env_service},
@@ -149,6 +157,7 @@ def register_auth_routes(app):
                     "db_client_ok": db_ok,
                     "storage_client_ok": storage_ok,
                 },
+                "ocr": ocr_info,
             }
         )
 

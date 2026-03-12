@@ -357,11 +357,20 @@ def register_scan_routes(app):
             return redirect(url_for("login"))
 
         user_id = get_user_id()
+        scan_id = request.args.get("scan_id")
+        latest_scan = None
         try:
             scans = list_scans(user_id)
         except Exception as exc:
             flash(f"Database error: {exc}", "warn")
             scans = []
+        if scan_id:
+            try:
+                latest_scan = get_scan(scan_id)
+                if latest_scan and latest_scan.get("user_id") != user_id:
+                    latest_scan = None
+            except Exception:
+                latest_scan = None
         recent_scans = scans[:5]
         tags = sorted({tag for scan in scans for tag in scan.get("tags", [])})
 
@@ -370,6 +379,7 @@ def register_scan_routes(app):
             recent_scans=recent_scans,
             tags=tags,
             user_email=session.get("user_email"),
+            latest_scan=latest_scan,
         )
 
     @app.route("/upload", methods=["POST"])
@@ -384,7 +394,7 @@ def register_scan_routes(app):
             return redirect(url_for("dashboard"))
 
         flash("OCR complete.", "success")
-        return redirect(url_for("result", scan_id=scan["id"]))
+        return redirect(url_for("dashboard", scan_id=scan["id"]))
 
     @app.route("/api/health")
     def api_health():

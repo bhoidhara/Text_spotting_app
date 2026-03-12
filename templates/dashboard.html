@@ -12,6 +12,36 @@
     <div class="user-chip">{{ user_email }}</div>
   </div>
 
+  {% if latest_scan %}
+    <div class="card latest-result" id="latest-result">
+      <div class="latest-header">
+        <div>
+          <h3>Latest OCR Result</h3>
+          <p class="muted">This is the text extracted from your last upload.</p>
+        </div>
+        <a class="button ghost" href="{{ url_for('result', scan_id=latest_scan.id) }}">Open full result</a>
+      </div>
+      <div class="grid-two">
+        <div>
+          <h4>Extracted Text</h4>
+          {% if latest_scan.extracted_text %}
+            <pre class="text-block">{{ latest_scan.extracted_text }}</pre>
+          {% else %}
+            <p class="muted">No text extracted. Try a clearer image or check OCR setup.</p>
+          {% endif %}
+        </div>
+        <div>
+          <h4>Cleaned Text</h4>
+          {% if latest_scan.cleaned_text %}
+            <pre class="text-block">{{ latest_scan.cleaned_text }}</pre>
+          {% else %}
+            <p class="muted">No cleaned text yet.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
   <div class="grid-two">
     <div class="card">
       <h3>Upload or Capture</h3>

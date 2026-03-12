@@ -36,6 +36,30 @@ except Exception:
     SpellChecker = None
 
 
+def tesseract_status():
+    status = {
+        "pytesseract_ok": False,
+        "tesseract_cmd": os.getenv("TESSERACT_CMD"),
+        "tesseract_version": None,
+        "error": None,
+    }
+
+    if pytesseract is None:
+        status["error"] = "pytesseract is not installed."
+        return status
+
+    status["pytesseract_ok"] = True
+    if status["tesseract_cmd"]:
+        pytesseract.pytesseract.tesseract_cmd = status["tesseract_cmd"]
+
+    try:
+        status["tesseract_version"] = str(pytesseract.get_tesseract_version())
+    except Exception as exc:
+        status["error"] = str(exc)
+
+    return status
+
+
 def preprocess_image(image):
     if ImageOps:
         image = ImageOps.grayscale(image)
@@ -45,12 +69,11 @@ def preprocess_image(image):
 
 
 def ocr_image(image, lang="eng"):
-    if pytesseract is None:
+    status = tesseract_status()
+    if not status.get("pytesseract_ok"):
         raise RuntimeError("pytesseract is not installed.")
-
-    tesseract_cmd = os.getenv("TESSERACT_CMD")
-    if tesseract_cmd:
-        pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+    if status.get("error"):
+        raise RuntimeError(f"Tesseract is not available: {status['error']}")
 
     processed = preprocess_image(image)
     text = pytesseract.image_to_string(processed, lang=lang)
