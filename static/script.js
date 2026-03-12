@@ -361,7 +361,7 @@
     const autoBoost = autoMode && autoAttempts > 0 && !advanced;
     let scale = 1;
     if (isMobile) {
-      const maxSide = advanced ? 1280 : autoBoost ? 1200 : 900;
+      const maxSide = advanced ? 1280 : autoBoost ? 1100 : 820;
       scale = Math.min(1, maxSide / Math.max(rawWidth, rawHeight));
     }
     canvas.width = Math.round(rawWidth * scale);
@@ -369,7 +369,7 @@
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     try {
-      const quality = advanced ? 0.88 : autoBoost ? 0.82 : 0.7;
+      const quality = advanced ? 0.88 : autoBoost ? 0.8 : 0.66;
       const blob = await new Promise((resolve) =>
         canvas.toBlob(resolve, "image/jpeg", quality)
       );
@@ -378,15 +378,21 @@
       }
 
       const formData = new FormData();
+      const selectedLang = langSelect ? langSelect.value : "eng";
+      const fastLang = selectedLang.includes("+") ? selectedLang.split("+")[0] : selectedLang;
+      const langForRequest = advanced || !isMobile ? selectedLang : fastLang;
       formData.append("images", blob, "camera.jpg");
-      formData.append("lang", langSelect ? langSelect.value : "eng");
+      formData.append("lang", langForRequest);
       formData.append("cleanup", "on");
-      formData.append("autocorrect", "on");
       formData.append("detect_intent", "on");
-      formData.append("student_mode", "on");
+      if (advanced) {
+        formData.append("autocorrect", "on");
+        formData.append("student_mode", "on");
+      }
+      formData.append("skip_storage", "on");
       if (advanced) {
         formData.append("advanced_ocr", "on");
-      } else if (autoMode) {
+      } else if (autoMode || isMobile) {
         formData.append("fast_ocr", "on");
       }
 
@@ -420,6 +426,13 @@
             return;
           }
           setStatus("Auto scan couldn't read text. Tap Scan Now for full scan.");
+          return;
+        }
+        if (!autoMode && noReadable && !advanced && isMobile) {
+          scanning = false;
+          startBtn.disabled = false;
+          setStatus("Trying enhanced scan...");
+          setTimeout(() => captureAndScan(false, true), 600);
           return;
         }
         throw new Error(errorMessage);
@@ -503,6 +516,10 @@
   startBtn.addEventListener("click", async () => {
     if (!stream) {
       await enableCamera(true);
+      return;
+    }
+    if (isMobile) {
+      captureAndScan(false, false);
       return;
     }
     captureAndScan(false, true);
@@ -597,46 +614,72 @@
     setStatus("Uploading... OCR is running.");
 
     try {
-      const formData = new FormData(form);
-      const advancedMode = formData.get("advanced_ocr") === "on";
-      const files = formData.getAll("images");
-      if (!files.length || (fileInput && !fileInput.files.length)) {
-        throw new Error("Please select at least one image.");
+      const runUpload = async (useAdvanced) => {
+        const formData = new FormData(form);
+        const userAdvanced = formData.get("advanced_ocr") === "on";
+        const advancedMode = userAdvanced || useAdvanced;
+        const selectedLang = formData.get("lang") || "eng";
+        const fastLang = selectedLang.includes("+") ? selectedLang.split("+")[0] : selectedLang;
+        const langForRequest = advancedMode ? selectedLang : fastLang;
+        formData.set("lang", langForRequest);
+        const files = formData.getAll("images");
+        if (!files.length || (fileInput && !fileInput.files.length)) {
+          return { ok: false, errorMessage: "Please select at least one image." };
+        }
+        formData.delete("images");
+        const maxSide = advancedMode ? 1800 : 1050;
+        const quality = advancedMode ? 0.85 : 0.7;
+        const processed = await Promise.all(
+          files.map((file) => compressImage(file, maxSide, quality))
+        );
+        processed.forEach((file) => {
+          formData.append("images", file, file.name || "upload.jpg");
+        });
+        if (!advancedMode) {
+          formData.append("fast_ocr", "on");
+          formData.delete("autocorrect");
+          formData.delete("student_mode");
+        } else if (!userAdvanced) {
+          formData.append("advanced_ocr", "on");
+        }
+        formData.append("skip_storage", "on");
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 35000);
+        const response = await fetch("/api/scans", {
+          method: "POST",
+          body: formData,
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        const rawText = await response.text();
+        let payload = {};
+        try {
+          payload = rawText ? JSON.parse(rawText) : {};
+        } catch (err) {
+          payload = {};
+        }
+        if (!response.ok || !payload.ok) {
+          const safeText =
+            rawText && rawText.length < 180 && !rawText.includes("<") ? rawText : "";
+          const errorMessage =
+            payload.error || safeText || `OCR failed (HTTP ${response.status}). Try again.`;
+          const noReadable = String(errorMessage).toLowerCase().includes("no readable");
+          return { ok: false, errorMessage, noReadable, userAdvanced };
+        }
+        return { ok: true, payload, userAdvanced };
+      };
+
+      let attempt = await runUpload(false);
+      if (!attempt.ok && attempt.noReadable && !attempt.userAdvanced) {
+        setStatus("Trying enhanced scan...");
+        attempt = await runUpload(true);
       }
-      formData.delete("images");
-      const maxSide = advancedMode ? 1800 : 1200;
-      const quality = advancedMode ? 0.85 : 0.75;
-      const processed = await Promise.all(
-        files.map((file) => compressImage(file, maxSide, quality))
-      );
-      processed.forEach((file) => {
-        formData.append("images", file, file.name || "upload.jpg");
-      });
-      if (!advancedMode) {
-        formData.append("fast_ocr", "on");
+      if (!attempt.ok) {
+        throw new Error(attempt.errorMessage || "OCR failed.");
       }
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 35000);
-      const response = await fetch("/api/scans", {
-        method: "POST",
-        body: formData,
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      const rawText = await response.text();
-      let payload = {};
-      try {
-        payload = rawText ? JSON.parse(rawText) : {};
-      } catch (err) {
-        payload = {};
-      }
-      if (!response.ok || !payload.ok) {
-        const safeText = rawText && rawText.length < 180 && !rawText.includes("<") ? rawText : "";
-        const errorMessage =
-          payload.error || safeText || `OCR failed (HTTP ${response.status}). Try again.`;
-        throw new Error(errorMessage);
-      }
+      const payload = attempt.payload || {};
 
       const scan = payload.data || {};
       if (openLink && scan.id) {

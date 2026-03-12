@@ -69,7 +69,7 @@ def register_scan_routes(app):
         if Image is None:
             return None, [], "Pillow is not installed. OCR cannot run."
 
-        lang = request.form.get("lang", "eng")
+        lang = request.form.get("lang", "eng") or "eng"
         cleanup = request.form.get("cleanup") == "on"
         autocorrect = request.form.get("autocorrect") == "on"
         detect_intent_flag = request.form.get("detect_intent") == "on"
@@ -77,6 +77,7 @@ def register_scan_routes(app):
         advanced_ocr = request.form.get("advanced_ocr") == "on"
         fast_ocr = request.form.get("fast_ocr") == "on"
         privacy_mode = request.form.get("privacy_mode") == "on"
+        skip_storage = request.form.get("skip_storage") == "on"
         crop_box = _build_crop_box()
 
         combined_text = []
@@ -93,7 +94,7 @@ def register_scan_routes(app):
 
         storage_env_on = os.getenv("SUPABASE_USE_STORAGE", "true").lower() not in {"false", "0", "no"}
         storage_available = False
-        if storage_env_on and not privacy_mode:
+        if storage_env_on and not privacy_mode and not skip_storage:
             try:
                 require_storage_client()
                 storage_available = supabase_storage_client() is not None
@@ -102,6 +103,8 @@ def register_scan_routes(app):
                 if _supabase_only():
                     return None, warnings, "Storage is not configured."
                 warnings.append("Cloud storage not available; keeping files locally.")
+        if skip_storage:
+            warnings.append("Storage upload skipped for faster scanning.")
 
 
         image_exts = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp", ".heic", ".heif"}
@@ -250,8 +253,18 @@ def register_scan_routes(app):
                             page, lang=lang, advanced=advanced_ocr, fast=fast_ocr and not advanced_ocr
                         )
                     except Exception as exc:
-                        warnings.append(f"OCR failed on {file.filename}: {exc}")
-                        continue
+                        if not advanced_ocr:
+                            try:
+                                page_text, avg_conf, low_conf, line_conf = ocr_image(
+                                    page, lang=lang, advanced=True, fast=False
+                                )
+                                warnings.append(f"Fallback OCR used for {file.filename}.")
+                            except Exception as exc2:
+                                warnings.append(f"OCR failed on {file.filename}: {exc2}")
+                                continue
+                        else:
+                            warnings.append(f"OCR failed on {file.filename}: {exc}")
+                            continue
                     _add_page(page_text, avg_conf=avg_conf, low_conf=low_conf, line_conf=line_conf)
 
                 if privacy_mode and _supabase_only():
@@ -284,12 +297,35 @@ def register_scan_routes(app):
                     image, lang=lang, advanced=advanced_ocr, fast=fast_ocr and not advanced_ocr
                 )
             except Exception as exc:
-                warnings.append(f"OCR failed on {file.filename}: {exc}")
-                continue
+                if not advanced_ocr:
+                    try:
+                        page_text, avg_conf, low_conf, line_conf = ocr_image(
+                            image, lang=lang, advanced=True, fast=False
+                        )
+                        warnings.append(f"Fallback OCR used for {file.filename}.")
+                    except Exception as exc2:
+                        warnings.append(f"OCR failed on {file.filename}: {exc2}")
+                        continue
+                else:
+                    warnings.append(f"OCR failed on {file.filename}: {exc}")
+                    continue
 
             _add_page(page_text, avg_conf=avg_conf, low_conf=low_conf, line_conf=line_conf)
 
             if ext in image_exts:
+                if skip_storage:
+                    if privacy_mode and _supabase_only():
+                        try:
+                            os.remove(file_path)
+                        except Exception:
+                            pass
+                        return None, warnings, "Privacy mode requires local storage, but local is disabled."
+                    if privacy_mode or not store_local:
+                        try:
+                            os.remove(file_path)
+                        except Exception:
+                            pass
+                    continue
                 storage_path = local_rel_path.replace("\\", "/")
                 upload_ok = False
                 if storage_available:
@@ -350,13 +386,19 @@ def register_scan_routes(app):
             mode = "creative"
         language = detect_language(cleaned_text)
         if autocorrect:
-            cleaned_text = auto_correct_text(cleaned_text, language)
+            try:
+                cleaned_text = auto_correct_text(cleaned_text, language)
+            except Exception as exc:
+                warnings.append(f"Auto-correct skipped: {exc}")
 
         summary = ""
         key_points = []
         mcqs = []
         if student_mode:
-            summary, key_points, mcqs = student_pack(cleaned_text)
+            try:
+                summary, key_points, mcqs = student_pack(cleaned_text)
+            except Exception as exc:
+                warnings.append(f"Student mode skipped: {exc}")
 
         confidence_avg = round(sum(combined_conf) / len(combined_conf), 2) if combined_conf else 0.0
 
