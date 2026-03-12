@@ -42,5 +42,37 @@
     </div>
     <canvas id="camera-canvas" class="camera-canvas" aria-hidden="true"></canvas>
   </div>
+
+  <div class="card camera-result hidden" id="camera-result">
+    <div class="camera-result-header">
+      <h3>Scan Result</h3>
+      <a class="button ghost small" id="camera-open" href="#">Open full result</a>
+    </div>
+    <div class="grid-two">
+      <div>
+        <label>Extracted Text</label>
+        <pre class="text-block compact" id="camera-extracted"></pre>
+      </div>
+      <div>
+        <label>Editable Clean Text</label>
+        <textarea rows="10" id="camera-cleaned" placeholder="OCR output will appear here."></textarea>
+      </div>
+    </div>
+    <div class="camera-translate">
+      <label>Convert Language</label>
+      <div class="camera-translate-controls">
+        <select id="camera-translate-lang">
+          <option value="en">English</option>
+          <option value="hi">Hindi</option>
+          <option value="gu">Gujarati</option>
+        </select>
+        <button class="button ghost" type="button" id="camera-translate-btn">Convert</button>
+      </div>
+      <div class="camera-translation hidden" id="camera-translation">
+        <label>Converted Text</label>
+        <pre class="text-block compact" id="camera-translation-text"></pre>
+      </div>
+    </div>
+  </div>
 </section>
 {% endblock %}

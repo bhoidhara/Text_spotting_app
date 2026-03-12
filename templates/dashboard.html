@@ -114,6 +114,23 @@
         </div>
 
         <button class="button primary" type="submit">Run OCR</button>
+        <p class="small" id="upload-status"></p>
+        <div class="card upload-result hidden" id="upload-result">
+          <div class="upload-result-header">
+            <h4>Scan Result</h4>
+            <a class="button ghost small" id="upload-open" href="#">Open full result</a>
+          </div>
+          <div class="grid-two">
+            <div>
+              <label>Extracted Text</label>
+              <pre class="text-block compact" id="upload-extracted"></pre>
+            </div>
+            <div>
+              <label>Editable Clean Text</label>
+              <textarea rows="10" id="upload-cleaned" placeholder="OCR output will appear here."></textarea>
+            </div>
+          </div>
+        </div>
       </form>
     </div>
 

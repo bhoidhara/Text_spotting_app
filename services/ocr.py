@@ -168,7 +168,7 @@ def _run_tesseract(image, lang, config):
     return text, data
 
 
-def ocr_image(image, lang="eng", advanced=False):
+def ocr_image(image, lang="eng", advanced=False, fast=False):
     status = tesseract_status()
     if not status.get("pytesseract_ok"):
         raise RuntimeError("pytesseract is not installed.")
@@ -176,6 +176,9 @@ def ocr_image(image, lang="eng", advanced=False):
         raise RuntimeError(f"Tesseract is not available: {status['error']}")
 
     variants = _preprocess_variants(image)
+    if fast:
+        # Keep the fastest path for mobile auto-scan.
+        variants = [("original", image)]
     last_exc = None
     best = {"score": -1, "text": "", "avg_conf": 0.0, "low_conf": [], "line_conf": []}
     configs = ["--oem 3 --psm 6"]

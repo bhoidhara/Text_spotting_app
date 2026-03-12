@@ -75,6 +75,7 @@ def register_scan_routes(app):
         detect_intent_flag = request.form.get("detect_intent") == "on"
         student_mode = request.form.get("student_mode") == "on"
         advanced_ocr = request.form.get("advanced_ocr") == "on"
+        fast_ocr = request.form.get("fast_ocr") == "on"
         privacy_mode = request.form.get("privacy_mode") == "on"
         crop_box = _build_crop_box()
 
@@ -231,7 +232,7 @@ def register_scan_routes(app):
                             pass
                     try:
                         page_text, avg_conf, low_conf, line_conf = ocr_image(
-                            page, lang=lang, advanced=advanced_ocr
+                            page, lang=lang, advanced=advanced_ocr, fast=fast_ocr and not advanced_ocr
                         )
                     except Exception as exc:
                         warnings.append(f"OCR failed on {file.filename}: {exc}")
@@ -265,7 +266,7 @@ def register_scan_routes(app):
 
             try:
                 page_text, avg_conf, low_conf, line_conf = ocr_image(
-                    image, lang=lang, advanced=advanced_ocr
+                    image, lang=lang, advanced=advanced_ocr, fast=fast_ocr and not advanced_ocr
                 )
             except Exception as exc:
                 warnings.append(f"OCR failed on {file.filename}: {exc}")
@@ -457,6 +458,51 @@ def register_scan_routes(app):
         if scan.get("user_id") != user_id:
             return jsonify({"ok": False, "error": "Forbidden"}), 403
         return jsonify({"ok": True, "data": scan})
+
+    @app.route("/api/scans/<scan_id>/translate", methods=["POST"])
+    def api_scan_translate(scan_id):
+        user_id = _api_user_id()
+        if not user_id:
+            return jsonify({"ok": False, "error": "Unauthorized"}), 401
+        try:
+            scan = get_scan(scan_id)
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+        if not scan:
+            return jsonify({"ok": False, "error": "Scan not found"}), 404
+        if scan.get("user_id") != user_id:
+            return jsonify({"ok": False, "error": "Forbidden"}), 403
+
+        payload = request.get_json(silent=True) or {}
+        target_lang = (payload.get("target_lang") or "en").lower()
+        source_text = scan.get("cleaned_text") or scan.get("extracted_text", "")
+        if not source_text:
+            return jsonify({"ok": False, "error": "No text available"}), 400
+
+        try:
+            from services.free_ai import translate_text
+
+            translated, source_lang = translate_text(source_text, target_lang)
+            scan["translation"] = {
+                "target": target_lang,
+                "source": source_lang,
+                "text": translated,
+                "created_at": now_iso(),
+            }
+            upsert_scan(scan)
+            log_translation(scan_id, scan.get("user_id"), source_lang, target_lang, translated)
+            return jsonify(
+                {
+                    "ok": True,
+                    "data": {
+                        "translation_text": translated,
+                        "target": target_lang,
+                        "source": source_lang,
+                    },
+                }
+            )
+        except Exception as exc:
+            return jsonify({"ok": False, "error": f"Translation failed: {exc}"}), 500
 
     @app.route("/api/scans/<scan_id>", methods=["PATCH"])
     def api_scan_update(scan_id):

@@ -856,6 +856,49 @@ body.theme-dark .user-chip {
   display: none;
 }
 
+.camera-result.hidden {
+  display: none;
+}
+
+.camera-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.upload-result {
+  margin-top: 16px;
+}
+
+.upload-result.hidden {
+  display: none;
+}
+
+.upload-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.camera-translate {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.camera-translate-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.camera-translation.hidden {
+  display: none;
+}
+
 .scan-details-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

@@ -128,6 +128,7 @@
   let dragging = false;
   let startX = 0;
   let startY = 0;
+  const isMobile = window.matchMedia("(max-width: 700px)").matches;
 
   const resetSelection = () => {
     selection.style.display = "none";
@@ -167,6 +168,16 @@
     img.onload = () => {
       previewWrap.classList.remove("hidden");
       resetSelection();
+      if (isMobile) {
+        // Auto-apply full image selection on mobile for easier scanning.
+        const rect = img.getBoundingClientRect();
+        selection.style.display = "block";
+        selection.style.left = "0px";
+        selection.style.top = "0px";
+        selection.style.width = `${rect.width}px`;
+        selection.style.height = `${rect.height}px`;
+        updateFields(0, 0, img.naturalWidth, img.naturalHeight);
+      }
     };
     img.src = url;
   });
@@ -235,6 +246,14 @@
   const canvas = document.getElementById("camera-canvas");
   const preview = document.getElementById("camera-preview");
   const status = document.getElementById("camera-status");
+  const resultCard = document.getElementById("camera-result");
+  const extractedEl = document.getElementById("camera-extracted");
+  const cleanedEl = document.getElementById("camera-cleaned");
+  const openLink = document.getElementById("camera-open");
+  const translateBtn = document.getElementById("camera-translate-btn");
+  const translateLang = document.getElementById("camera-translate-lang");
+  const translationWrap = document.getElementById("camera-translation");
+  const translationText = document.getElementById("camera-translation-text");
   const langSelect = document.querySelector("select[name='camera_lang']");
   const sourceSelect = document.querySelector("select[name='camera_source']");
 
@@ -246,7 +265,8 @@
   let scanning = false;
   const isMobile = window.matchMedia("(max-width: 700px)").matches;
   let autoAttempts = 0;
-  const MAX_AUTO_ATTEMPTS = 3;
+  const MAX_AUTO_ATTEMPTS = 2;
+  let lastScanId = null;
 
   const setStatus = (message) => {
     if (status) {
@@ -338,9 +358,10 @@
     const ctx = canvas.getContext("2d");
     const rawWidth = video.videoWidth;
     const rawHeight = video.videoHeight;
+    const autoBoost = autoMode && autoAttempts > 0 && !advanced;
     let scale = 1;
     if (isMobile) {
-      const maxSide = advanced ? 1600 : 1200;
+      const maxSide = advanced ? 1280 : autoBoost ? 1200 : 900;
       scale = Math.min(1, maxSide / Math.max(rawWidth, rawHeight));
     }
     canvas.width = Math.round(rawWidth * scale);
@@ -348,7 +369,7 @@
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     try {
-      const quality = advanced ? 0.92 : 0.82;
+      const quality = advanced ? 0.88 : autoBoost ? 0.82 : 0.7;
       const blob = await new Promise((resolve) =>
         canvas.toBlob(resolve, "image/jpeg", quality)
       );
@@ -365,43 +386,111 @@
       formData.append("student_mode", "on");
       if (advanced) {
         formData.append("advanced_ocr", "on");
+      } else if (autoMode) {
+        formData.append("fast_ocr", "on");
       }
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
       const response = await fetch("/api/scans", {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ok) {
         const errorMessage = payload.error || "OCR failed. Try again.";
-        if (
-          autoMode &&
-          autoAttempts < MAX_AUTO_ATTEMPTS &&
-          String(errorMessage).toLowerCase().includes("no readable")
-        ) {
-          autoAttempts += 1;
-          scanning = false;
-          startBtn.disabled = false;
-          setStatus("Auto scan retrying (enhanced)...");
-          setTimeout(() => captureAndScan(true, true), 1200);
+        const noReadable = String(errorMessage).toLowerCase().includes("no readable");
+        if (autoMode && noReadable) {
+          if (autoAttempts < MAX_AUTO_ATTEMPTS) {
+            autoAttempts += 1;
+            scanning = false;
+            startBtn.disabled = false;
+            setStatus("Auto scan retrying...");
+            setTimeout(() => captureAndScan(true, false), 900);
+            return;
+          }
+          setStatus("Auto scan couldn't read text. Tap Scan Now for full scan.");
           return;
         }
         throw new Error(errorMessage);
       }
 
       const scanId = payload.data && payload.data.id;
-      if (scanId) {
-        window.location.href = `/result/${scanId}`;
-        return;
+      lastScanId = scanId || null;
+      if (scanId && openLink) {
+        openLink.href = `/result/${scanId}`;
       }
-      setStatus("Scan complete. Open History to view results.");
+      if (extractedEl) {
+        extractedEl.textContent = (payload.data && payload.data.extracted_text) || "";
+      }
+      if (cleanedEl) {
+        cleanedEl.value =
+          (payload.data && payload.data.cleaned_text) ||
+          (payload.data && payload.data.extracted_text) ||
+          "";
+      }
+      if (resultCard) {
+        resultCard.classList.remove("hidden");
+      }
+      if (translationWrap) {
+        translationWrap.classList.add("hidden");
+      }
+      if (translationText) {
+        translationText.textContent = "";
+      }
+      setStatus("Scan complete. Result shown below.");
     } catch (err) {
-      setStatus(err && err.message ? err.message : "Scan failed.");
+      if (err && err.name === "AbortError") {
+        setStatus("Server busy. Try again.");
+      } else {
+        setStatus(err && err.message ? err.message : "Scan failed.");
+      }
     } finally {
       scanning = false;
       startBtn.disabled = false;
     }
   };
+
+  const runTranslate = async () => {
+    if (!lastScanId) {
+      setStatus("Scan first, then convert language.");
+      return;
+    }
+    if (!translateBtn) {
+      return;
+    }
+    translateBtn.disabled = true;
+    setStatus("Converting language...");
+    try {
+      const targetLang = translateLang ? translateLang.value : "en";
+      const response = await fetch(`/api/scans/${lastScanId}/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target_lang: targetLang }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || "Translate failed.");
+      }
+      if (translationText) {
+        translationText.textContent = (payload.data && payload.data.translation_text) || "";
+      }
+      if (translationWrap) {
+        translationWrap.classList.remove("hidden");
+      }
+      setStatus("Conversion done.");
+    } catch (err) {
+      setStatus(err && err.message ? err.message : "Translate failed.");
+    } finally {
+      translateBtn.disabled = false;
+    }
+  };
+
+  if (translateBtn) {
+    translateBtn.addEventListener("click", runTranslate);
+  }
 
   startBtn.addEventListener("click", async () => {
     if (!stream) {
@@ -413,5 +502,151 @@
 
   window.addEventListener("beforeunload", () => {
     stopStream();
+  });
+})();
+
+(function () {
+  const form = document.querySelector('form[action="/upload"]');
+  if (!form) {
+    return;
+  }
+
+  const isMobile = window.matchMedia("(max-width: 700px)").matches;
+  if (!isMobile) {
+    return;
+  }
+
+  const status = document.getElementById("upload-status");
+  const resultCard = document.getElementById("upload-result");
+  const extractedEl = document.getElementById("upload-extracted");
+  const cleanedEl = document.getElementById("upload-cleaned");
+  const openLink = document.getElementById("upload-open");
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const fileInput = form.querySelector('input[type="file"][name="images"]');
+
+  const setStatus = (message) => {
+    if (status) {
+      status.textContent = message;
+    }
+  };
+
+  const loadImage = (file) =>
+    new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(img);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Image decode failed."));
+      };
+      img.src = url;
+    });
+
+  const compressImage = async (file, maxSide, quality) => {
+    if (!file.type.startsWith("image/")) {
+      return file;
+    }
+    try {
+      const img = await loadImage(file);
+      const rawWidth = img.naturalWidth || img.width;
+      const rawHeight = img.naturalHeight || img.height;
+      if (!rawWidth || !rawHeight) {
+        return file;
+      }
+      const scale = Math.min(1, maxSide / Math.max(rawWidth, rawHeight));
+      if (scale >= 1) {
+        return file;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(rawWidth * scale);
+      canvas.height = Math.round(rawHeight * scale);
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", quality)
+      );
+      if (!blob) {
+        return file;
+      }
+      const safeName = file.name ? file.name.replace(/\.[^.]+$/, ".jpg") : "upload.jpg";
+      return new File([blob], safeName, { type: "image/jpeg" });
+    } catch (err) {
+      return file;
+    }
+  };
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (submitBtn) {
+      submitBtn.disabled = true;
+    }
+    if (resultCard) {
+      resultCard.classList.add("hidden");
+    }
+    setStatus("Uploading... OCR is running.");
+
+    try {
+      const formData = new FormData(form);
+      const advancedMode = formData.get("advanced_ocr") === "on";
+      const files = formData.getAll("images");
+      if (!files.length || (fileInput && !fileInput.files.length)) {
+        throw new Error("Please select at least one image.");
+      }
+      formData.delete("images");
+      const maxSide = advancedMode ? 1800 : 1200;
+      const quality = advancedMode ? 0.85 : 0.75;
+      const processed = await Promise.all(
+        files.map((file) => compressImage(file, maxSide, quality))
+      );
+      processed.forEach((file) => {
+        formData.append("images", file, file.name || "upload.jpg");
+      });
+      if (!advancedMode) {
+        formData.append("fast_ocr", "on");
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+      const response = await fetch("/api/scans", {
+        method: "POST",
+        body: formData,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || "OCR failed. Try again.");
+      }
+
+      const scan = payload.data || {};
+      if (openLink && scan.id) {
+        openLink.href = `/result/${scan.id}`;
+      }
+      if (extractedEl) {
+        extractedEl.textContent = scan.extracted_text || "";
+      }
+      if (cleanedEl) {
+        cleanedEl.value = scan.cleaned_text || scan.extracted_text || "";
+      }
+      if (resultCard) {
+        resultCard.classList.remove("hidden");
+      }
+
+      const warnings = payload.warnings || [];
+      setStatus(warnings.length ? `OCR complete. ${warnings[0]}` : "OCR complete.");
+    } catch (err) {
+      if (err && err.name === "AbortError") {
+        setStatus("Server busy. Try again.");
+      } else {
+        setStatus(err && err.message ? err.message : "Upload failed.");
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+      }
+    }
   });
 })();
