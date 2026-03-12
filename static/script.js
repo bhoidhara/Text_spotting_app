@@ -301,7 +301,7 @@
       if (autoScan && isMobile) {
         autoAttempts = 0;
         setTimeout(() => {
-          captureAndScan(true);
+          captureAndScan(true, false);
         }, 700);
       }
     } catch (err) {
@@ -313,7 +313,7 @@
     enableCamera(true);
   });
 
-  const captureAndScan = async (autoMode = false) => {
+  const captureAndScan = async (autoMode = false, advanced = false) => {
     if (scanning) {
       return;
     }
@@ -336,13 +336,21 @@
     setStatus(autoMode ? "Auto scanning..." : "Scanning...");
 
     const ctx = canvas.getContext("2d");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    const rawWidth = video.videoWidth;
+    const rawHeight = video.videoHeight;
+    let scale = 1;
+    if (isMobile) {
+      const maxSide = advanced ? 1600 : 1200;
+      scale = Math.min(1, maxSide / Math.max(rawWidth, rawHeight));
+    }
+    canvas.width = Math.round(rawWidth * scale);
+    canvas.height = Math.round(rawHeight * scale);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     try {
+      const quality = advanced ? 0.92 : 0.82;
       const blob = await new Promise((resolve) =>
-        canvas.toBlob(resolve, "image/jpeg", 0.98)
+        canvas.toBlob(resolve, "image/jpeg", quality)
       );
       if (!blob) {
         throw new Error("Capture failed.");
@@ -355,7 +363,9 @@
       formData.append("autocorrect", "on");
       formData.append("detect_intent", "on");
       formData.append("student_mode", "on");
-      formData.append("advanced_ocr", "on");
+      if (advanced) {
+        formData.append("advanced_ocr", "on");
+      }
 
       const response = await fetch("/api/scans", {
         method: "POST",
@@ -372,8 +382,8 @@
           autoAttempts += 1;
           scanning = false;
           startBtn.disabled = false;
-          setStatus("Auto scan retrying...");
-          setTimeout(() => captureAndScan(true), 1200);
+          setStatus("Auto scan retrying (enhanced)...");
+          setTimeout(() => captureAndScan(true, true), 1200);
           return;
         }
         throw new Error(errorMessage);
@@ -398,7 +408,7 @@
       await enableCamera(true);
       return;
     }
-    captureAndScan(false);
+    captureAndScan(false, true);
   });
 
   window.addEventListener("beforeunload", () => {
