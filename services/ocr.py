@@ -90,41 +90,45 @@ def _downscale_image(image, max_side):
             return image
 
 
-def _preprocess_variants(image):
+def _preprocess_variants(image, advanced=False):
     variants = []
     base = image
     if ImageOps:
         base = ImageOps.grayscale(base)
         variants.append(("grayscale", base))
-        try:
-            variants.append(("autocontrast", ImageOps.autocontrast(base)))
-        except Exception:
-            pass
+        if advanced:
+            try:
+                variants.append(("autocontrast", ImageOps.autocontrast(base)))
+            except Exception:
+                pass
     if ImageFilter:
         try:
             variants.append(("median", base.filter(ImageFilter.MedianFilter(size=3))))
         except Exception:
             pass
-        try:
-            variants.append(("sharpen", base.filter(ImageFilter.UnsharpMask(radius=1, percent=160, threshold=2))))
-        except Exception:
-            pass
+        if advanced:
+            try:
+                variants.append(("sharpen", base.filter(ImageFilter.UnsharpMask(radius=1, percent=160, threshold=2))))
+            except Exception:
+                pass
     if ImageEnhance:
         try:
-            variants.append(("contrast", ImageEnhance.Contrast(base).enhance(1.8)))
+            contrast_level = 1.5 if advanced else 1.25
+            variants.append(("contrast", ImageEnhance.Contrast(base).enhance(contrast_level)))
         except Exception:
             pass
-    try:
-        threshold = base.point(lambda p: 255 if p > 160 else 0)
-        variants.append(("threshold", threshold))
-    except Exception:
-        pass
-    try:
-        width, height = base.size
-        upscaled = base.resize((width * 2, height * 2), resample=getattr(base, "LANCZOS", 1))
-        variants.append(("upscale", upscaled))
-    except Exception:
-        pass
+    if advanced:
+        try:
+            threshold = base.point(lambda p: 255 if p > 160 else 0)
+            variants.append(("threshold", threshold))
+        except Exception:
+            pass
+        try:
+            width, height = base.size
+            upscaled = base.resize((width * 2, height * 2), resample=getattr(base, "LANCZOS", 1))
+            variants.append(("upscale", upscaled))
+        except Exception:
+            pass
     variants.append(("original", image))
     return variants
 
@@ -202,10 +206,10 @@ def ocr_image(image, lang="eng", advanced=False, fast=False):
         except Exception:
             pass
 
-    max_side = 1600 if fast else 2400 if advanced else 2000
+    max_side = 1400 if fast else 2200 if advanced else 1800
     image = _downscale_image(image, max_side)
 
-    variants = _preprocess_variants(image)
+    variants = _preprocess_variants(image, advanced=advanced)
     if fast:
         # Keep the fastest path for mobile auto-scan.
         variants = [("original", image)]

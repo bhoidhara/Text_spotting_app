@@ -236,7 +236,7 @@ def register_scan_routes(app):
                     warnings.append(f"PDF support not installed: {exc}")
                     continue
                 try:
-                    pdf_dpi = 300 if advanced_ocr else 160 if fast_ocr else 220
+                    pdf_dpi = 220 if advanced_ocr else 140 if fast_ocr else 180
                     pages = convert_from_path(file_path, dpi=pdf_dpi)
                 except Exception as exc:
                     warnings.append(f"Failed to read PDF {file.filename}: {exc}")
