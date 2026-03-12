@@ -244,6 +244,7 @@
 
   let stream = null;
   let scanning = false;
+  const isMobile = window.matchMedia("(max-width: 700px)").matches;
 
   const setStatus = (message) => {
     if (status) {
@@ -269,51 +270,72 @@
     return { video: { facingMode }, audio: false };
   };
 
-  const enableCamera = async () => {
+  const waitForVideoReady = () =>
+    new Promise((resolve) => {
+      const start = Date.now();
+      const check = () => {
+        if (video.videoWidth && video.videoHeight) {
+          resolve(true);
+          return;
+        }
+        if (Date.now() - start > 2000) {
+          resolve(false);
+          return;
+        }
+        requestAnimationFrame(check);
+      };
+      check();
+    });
+
+  const enableCamera = async (autoScan = false) => {
     stopStream();
     try {
       stream = await navigator.mediaDevices.getUserMedia(getConstraints());
       video.srcObject = stream;
       await video.play();
       preview.classList.add("active");
-      setStatus("Camera ready. Tap Start Camera to scan.");
+      setStatus(autoScan && isMobile ? "Camera ready. Auto scan starting..." : "Camera ready. Tap Start Camera to scan.");
       startBtn.textContent = "Scan Now";
+      if (autoScan && isMobile) {
+        setTimeout(() => {
+          captureAndScan(true);
+        }, 700);
+      }
     } catch (err) {
       setStatus("Camera permission denied or unavailable.");
     }
   };
 
   enableBtn.addEventListener("click", () => {
-    enableCamera();
+    enableCamera(true);
   });
 
-  startBtn.addEventListener("click", async () => {
+  const captureAndScan = async (autoMode = false) => {
     if (scanning) {
       return;
     }
 
     if (!stream) {
-      await enableCamera();
+      await enableCamera(autoMode);
       if (!stream) {
         return;
       }
     }
 
-    const width = video.videoWidth;
-    const height = video.videoHeight;
-    if (!width || !height) {
+    const ready = await waitForVideoReady();
+    if (!ready) {
       setStatus("Camera not ready. Try again.");
       return;
     }
 
     scanning = true;
     startBtn.disabled = true;
-    setStatus("Scanning...");
+    setStatus(autoMode ? "Auto scanning..." : "Scanning...");
 
     const ctx = canvas.getContext("2d");
-    canvas.width = width;
-    canvas.height = height;
-    ctx.drawImage(video, 0, 0, width, height);
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     try {
       const blob = await new Promise((resolve) =>
@@ -353,6 +375,14 @@
       scanning = false;
       startBtn.disabled = false;
     }
+  };
+
+  startBtn.addEventListener("click", async () => {
+    if (!stream) {
+      await enableCamera(true);
+      return;
+    }
+    captureAndScan(false);
   });
 
   window.addEventListener("beforeunload", () => {
