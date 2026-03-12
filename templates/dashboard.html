@@ -49,6 +49,25 @@
           {% endif %}
         </div>
       </div>
+      <div class="card">
+        <h4>Translate</h4>
+        <form method="post" action="{{ url_for('translate_result', scan_id=latest_scan.id) }}" class="form inline">
+          <select name="target_lang">
+            <option value="en">English</option>
+            <option value="hi">Hindi</option>
+            <option value="gu">Gujarati</option>
+          </select>
+          <button class="button ghost" type="submit">Translate</button>
+        </form>
+        {% if latest_scan.translation %}
+          <div class="translation">
+            <strong>Translation ({{ latest_scan.translation.target | upper }}):</strong>
+            <p>{{ latest_scan.translation.text }}</p>
+          </div>
+        {% else %}
+          <p class="small">Choose a language to convert the text.</p>
+        {% endif %}
+      </div>
     </div>
   {% endif %}
 
@@ -59,7 +78,7 @@
         <label>Select images</label>
         <input type="file" name="images" multiple required />
 
-        <label>OCR Language</label>
+        <label>Recognition Language</label>
         <select name="lang">
           <option value="eng">English</option>
           <option value="hin">Hindi</option>
@@ -68,6 +87,7 @@
         </select>
 
         <div class="checkbox-grid">
+          <label><input type="checkbox" name="advanced_ocr" /> Advanced OCR Mode</label>
           <label><input type="checkbox" name="cleanup" checked /> Smart cleanup</label>
           <label><input type="checkbox" name="autocorrect" checked /> Auto-correct (English)</label>
           <label><input type="checkbox" name="detect_intent" checked /> Intent detection</label>

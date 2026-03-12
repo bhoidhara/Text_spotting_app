@@ -74,6 +74,7 @@ def register_scan_routes(app):
         autocorrect = request.form.get("autocorrect") == "on"
         detect_intent_flag = request.form.get("detect_intent") == "on"
         student_mode = request.form.get("student_mode") == "on"
+        advanced_ocr = request.form.get("advanced_ocr") == "on"
         privacy_mode = request.form.get("privacy_mode") == "on"
         crop_box = _build_crop_box()
 
@@ -229,7 +230,9 @@ def register_scan_routes(app):
                         except Exception:
                             pass
                     try:
-                        page_text, avg_conf, low_conf, line_conf = ocr_image(page, lang=lang)
+                        page_text, avg_conf, low_conf, line_conf = ocr_image(
+                            page, lang=lang, advanced=advanced_ocr
+                        )
                     except Exception as exc:
                         warnings.append(f"OCR failed on {file.filename}: {exc}")
                         continue
@@ -261,7 +264,9 @@ def register_scan_routes(app):
                     pass
 
             try:
-                page_text, avg_conf, low_conf, line_conf = ocr_image(image, lang=lang)
+                page_text, avg_conf, low_conf, line_conf = ocr_image(
+                    image, lang=lang, advanced=advanced_ocr
+                )
             except Exception as exc:
                 warnings.append(f"OCR failed on {file.filename}: {exc}")
                 continue
@@ -529,6 +534,20 @@ def register_scan_routes(app):
             return redirect(url_for("dashboard"))
 
         actions = extract_actions(scan.get("cleaned_text") or scan.get("extracted_text", ""))
+
+        extracted = scan.get("extracted_text") or ""
+        word_count = len([w for w in extracted.split() if w.strip()])
+        file_name = ""
+        if scan.get("image_paths"):
+            file_name = os.path.basename(scan["image_paths"][0])
+        source_label = "Upload"
+        if file_name.lower().endswith("camera.jpg"):
+            source_label = "Camera"
+
+        scan["word_count"] = word_count
+        scan["file_name"] = file_name or "N/A"
+        scan["source_label"] = source_label
+        scan["extracted_excerpt"] = extracted[:500]
 
         return render_template(
             "result.html",

@@ -4,8 +4,9 @@ import re
 from utils.helpers import safe_int
 
 try:
-    from PIL import ImageFilter, ImageOps
+    from PIL import ImageEnhance, ImageFilter, ImageOps
 except Exception:
+    ImageEnhance = None
     ImageFilter = None
     ImageOps = None
 
@@ -68,26 +69,46 @@ def preprocess_image(image):
     return image
 
 
-def ocr_image(image, lang="eng"):
-    status = tesseract_status()
-    if not status.get("pytesseract_ok"):
-        raise RuntimeError("pytesseract is not installed.")
-    if status.get("error"):
-        raise RuntimeError(f"Tesseract is not available: {status['error']}")
-
-    processed = preprocess_image(image)
-    text = pytesseract.image_to_string(processed, lang=lang)
-    data_source = processed
-    if not text.strip():
-        # Fallback to the original image if preprocessing wiped useful detail.
-        text = pytesseract.image_to_string(image, lang=lang)
-        data_source = image
-
+def _preprocess_variants(image):
+    variants = []
+    base = image
+    if ImageOps:
+        base = ImageOps.grayscale(base)
+        variants.append(("grayscale", base))
+        try:
+            variants.append(("autocontrast", ImageOps.autocontrast(base)))
+        except Exception:
+            pass
+    if ImageFilter:
+        try:
+            variants.append(("median", base.filter(ImageFilter.MedianFilter(size=3))))
+        except Exception:
+            pass
+        try:
+            variants.append(("sharpen", base.filter(ImageFilter.UnsharpMask(radius=1, percent=160, threshold=2))))
+        except Exception:
+            pass
+    if ImageEnhance:
+        try:
+            variants.append(("contrast", ImageEnhance.Contrast(base).enhance(1.8)))
+        except Exception:
+            pass
     try:
-        data = pytesseract.image_to_data(data_source, lang=lang, output_type=pytesseract.Output.DICT)
+        threshold = base.point(lambda p: 255 if p > 160 else 0)
+        variants.append(("threshold", threshold))
     except Exception:
-        data = {"text": [], "conf": []}
+        pass
+    try:
+        width, height = base.size
+        upscaled = base.resize((width * 2, height * 2), resample=getattr(base, "LANCZOS", 1))
+        variants.append(("upscale", upscaled))
+    except Exception:
+        pass
+    variants.append(("original", image))
+    return variants
 
+
+def _summarize_data(data):
     conf_values = []
     low_conf_words = []
     line_confidence = []
@@ -128,7 +149,75 @@ def ocr_image(image, lang="eng"):
 
     avg_conf = round(sum(conf_values) / len(conf_values), 2) if conf_values else 0.0
 
-    return text, avg_conf, low_conf_words, line_confidence
+    return avg_conf, low_conf_words, line_confidence
+
+
+def _needs_lang_fallback(exc):
+    message = str(exc).lower()
+    return "failed loading language" in message or "error opening data file" in message
+
+
+def _run_tesseract(image, lang, config):
+    text = pytesseract.image_to_string(image, lang=lang, config=config)
+    try:
+        data = pytesseract.image_to_data(
+            image, lang=lang, config=config, output_type=pytesseract.Output.DICT
+        )
+    except Exception:
+        data = {"text": [], "conf": []}
+    return text, data
+
+
+def ocr_image(image, lang="eng", advanced=False):
+    status = tesseract_status()
+    if not status.get("pytesseract_ok"):
+        raise RuntimeError("pytesseract is not installed.")
+    if status.get("error"):
+        raise RuntimeError(f"Tesseract is not available: {status['error']}")
+
+    variants = _preprocess_variants(image)
+    last_exc = None
+    best = {"score": -1, "text": "", "avg_conf": 0.0, "low_conf": [], "line_conf": []}
+    configs = ["--oem 3 --psm 6"]
+    if advanced:
+        configs = [
+            "--oem 3 --psm 6",
+            "--oem 3 --psm 4",
+            "--oem 3 --psm 11",
+            "--oem 3 --psm 3",
+        ]
+
+    for _, candidate in variants:
+        for config in configs:
+            try:
+                text, data = _run_tesseract(candidate, lang, config)
+            except Exception as exc:
+                if lang != "eng" and _needs_lang_fallback(exc):
+                    try:
+                        text, data = _run_tesseract(candidate, "eng", config)
+                    except Exception as inner_exc:
+                        last_exc = inner_exc
+                        continue
+                else:
+                    last_exc = exc
+                    continue
+
+            avg_conf, low_conf_words, line_confidence = _summarize_data(data)
+            text_clean = (text or "").strip()
+            score = len(text_clean) + (avg_conf * 2)
+            if score > best["score"]:
+                best = {
+                    "score": score,
+                    "text": text,
+                    "avg_conf": avg_conf,
+                    "low_conf": low_conf_words,
+                    "line_conf": line_confidence,
+                }
+
+    if best["score"] < 0:
+        raise RuntimeError(f"OCR failed: {last_exc}") if last_exc else RuntimeError("OCR failed.")
+
+    return best["text"], best["avg_conf"], best["low_conf"], best["line_conf"]
 
 
 def clean_text(text):

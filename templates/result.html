@@ -35,6 +35,26 @@
     </div>
   {% endif %}
 
+  <div class="card scan-details">
+    <h3>Scan Details</h3>
+    <div class="scan-details-grid">
+      <div class="scan-meta">
+        <div class="scan-meta-row"><span>Source:</span> {{ scan.source_label }}</div>
+        <div class="scan-meta-row"><span>File:</span> {{ scan.file_name }}</div>
+        <div class="scan-meta-row"><span>Date:</span> {{ scan.created_at }}</div>
+        <div class="scan-meta-row"><span>Words:</span> {{ scan.word_count }}</div>
+      </div>
+      <div>
+        <label>Extracted Text</label>
+        {% if scan.extracted_excerpt %}
+          <pre class="text-block compact">{{ scan.extracted_excerpt }}</pre>
+        {% else %}
+          <p class="muted">No text extracted yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
   <div class="grid-two">
     <div class="card">
       <h3>Extracted Text</h3>

@@ -330,6 +330,7 @@
       formData.append("autocorrect", "on");
       formData.append("detect_intent", "on");
       formData.append("student_mode", "on");
+      formData.append("advanced_ocr", "on");
 
       const response = await fetch("/api/scans", {
         method: "POST",
