@@ -702,6 +702,8 @@ body.theme-dark .pill {
   color: #2d1600;
   font-weight: 600;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .flash-success {
@@ -746,6 +748,21 @@ body.auth-page .flash-stack {
 
 body.auth-page .flash {
   border-radius: 14px;
+}
+
+@media (max-width: 640px) {
+  .flash-stack {
+    position: static;
+    top: auto;
+    width: 100%;
+    margin: 0 0 12px;
+    padding-top: 0;
+  }
+
+  .flash {
+    font-size: 13px;
+    padding: 10px 12px;
+  }
 }
 
 .muted {

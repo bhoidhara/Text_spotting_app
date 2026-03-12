@@ -38,7 +38,12 @@
   <div class="grid-two">
     <div class="card">
       <h3>Extracted Text</h3>
-      <pre class="text-block">{{ scan.extracted_text }}</pre>
+      {% if scan.extracted_text %}
+        <pre class="text-block">{{ scan.extracted_text }}</pre>
+      {% else %}
+        <p class="muted">No text extracted. This usually means OCR didn’t run or the image was too low quality.</p>
+        <p class="muted">Try a clearer image, check OCR language, or verify Tesseract on the server.</p>
+      {% endif %}
       {% if scan.line_confidence %}
         <div class="confidence-lines">
           {% for item in scan.line_confidence %}
@@ -57,12 +62,13 @@
     <div class="card">
       <h3>Editable Clean Text</h3>
       <form method="post" action="{{ url_for('save_result', scan_id=scan.id) }}" class="form">
-        <textarea name="cleaned_text" rows="14">{{ scan.cleaned_text }}</textarea>
+        <textarea name="cleaned_text" rows="14" placeholder="OCR output will appear here after a successful scan.">{{ scan.cleaned_text }}</textarea>
         <label>Tags (comma separated)</label>
         <input type="text" name="tags" placeholder="notes, physics, invoice" value="{{ scan.tags | join(', ') }}" />
         <div class="button-row">
           <button class="button primary" type="submit">Save</button>
           <button class="button ghost" type="button" data-copy-target>Copy</button>
+          <button class="button ghost" type="button" data-copy-format>Copy with formatting</button>
         </div>
       </form>
 

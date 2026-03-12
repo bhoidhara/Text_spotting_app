@@ -21,6 +21,80 @@
 })();
 
 (function () {
+  const formatButtons = document.querySelectorAll("[data-copy-format]");
+  if (!formatButtons.length) {
+    return;
+  }
+
+  const escapeHtml = (value) =>
+    value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+  const toHtml = (text) => {
+    const safe = escapeHtml(text).trim();
+    if (!safe) {
+      return "";
+    }
+    const paragraphs = safe.split(/\n{2,}/).map((chunk) => {
+      const lines = chunk.split(/\n/).join("<br />");
+      return `<p>${lines}</p>`;
+    });
+    return paragraphs.join("");
+  };
+
+  const setStatus = (button, label) => {
+    const original = button.textContent;
+    button.textContent = label;
+    setTimeout(() => {
+      button.textContent = original;
+    }, 1200);
+  };
+
+  formatButtons.forEach((button) => {
+    button.addEventListener("click", async () => {
+      const textarea = document.querySelector("textarea[name='cleaned_text']");
+      if (!textarea) {
+        return;
+      }
+      const plainText = textarea.value || "";
+      const htmlText = toHtml(plainText);
+      if (!plainText.trim()) {
+        setStatus(button, "Empty");
+        return;
+      }
+
+      if (navigator.clipboard && window.ClipboardItem) {
+        try {
+          const htmlBlob = new Blob([htmlText], { type: "text/html" });
+          const textBlob = new Blob([plainText], { type: "text/plain" });
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              "text/html": htmlBlob,
+              "text/plain": textBlob,
+            }),
+          ]);
+          setStatus(button, "Copied");
+          return;
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      // Fallback: plain-text copy
+      textarea.select();
+      try {
+        document.execCommand("copy");
+        setStatus(button, "Copied");
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  });
+})();
+
+(function () {
   const input = document.querySelector("input[name='images']");
   const previewWrap = document.getElementById("sniper-preview");
   const canvas = document.getElementById("sniper-canvas");
