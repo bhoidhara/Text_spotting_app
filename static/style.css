@@ -17,6 +17,8 @@
   --auth-muted: #9ca3af;
   --auth-brand: #7c4dff;
   --auth-brand-dark: #6a3de8;
+  --focus-ring: rgba(232, 93, 63, 0.28);
+  --focus-border: #e85d3f;
 }
 
 * {
@@ -30,6 +32,9 @@ body {
   background: radial-gradient(circle at top left, #fcefe3 0%, #f6f1e7 45%, #efe6d9 100%);
   min-height: 100vh;
   overflow-x: hidden;
+  line-height: 1.55;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 body.auth-page {
@@ -48,6 +53,8 @@ body.theme-dark {
     radial-gradient(circle at bottom right, rgba(124, 77, 255, 0.1), transparent 40%),
     #0b0c0f;
   color: #f9fafb;
+  --focus-ring: rgba(124, 77, 255, 0.35);
+  --focus-border: #7c4dff;
 }
 
 a {
@@ -237,6 +244,7 @@ body.theme-dark .scan-output {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
 
 .button.primary {
@@ -246,6 +254,7 @@ body.theme-dark .scan-output {
 
 .button.primary:hover {
   background: var(--brand-dark);
+  box-shadow: 0 8px 20px rgba(232, 93, 63, 0.25);
 }
 
 body.auth-page .button.primary {
@@ -274,6 +283,7 @@ body.theme-dark .button.primary {
 
 body.theme-dark .button.primary:hover {
   background: var(--auth-brand-dark);
+  box-shadow: 0 8px 20px rgba(124, 77, 255, 0.25);
 }
 
 body.theme-dark .button.ghost {
@@ -284,6 +294,18 @@ body.theme-dark .button.ghost {
 .button.ghost {
   background: transparent;
   border: 1px solid var(--line);
+}
+
+.button.ghost:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+body.theme-dark .button.ghost:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.button:active {
+  transform: translateY(1px);
 }
 
 .button.small {
@@ -311,6 +333,7 @@ textarea {
   border-radius: 10px;
   border: 1px solid var(--line);
   font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 input[type="file"] {
@@ -340,6 +363,14 @@ body.theme-dark textarea {
 
 body.theme-dark input::placeholder {
   color: #6b7280;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--focus-border);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 textarea {
@@ -404,6 +435,16 @@ body.auth-page .auth-card .subtitle {
 body.auth-page .auth-card label {
   font-size: 14px;
   color: #e5e7eb;
+}
+
+label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+body.theme-dark label {
+  color: var(--auth-muted);
 }
 
 body.auth-page .auth-divider,
