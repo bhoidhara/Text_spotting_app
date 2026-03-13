@@ -266,6 +266,26 @@ def register_scan_routes(app):
                             warnings.append(f"OCR failed on {file.filename}: {exc}")
                             continue
                     _add_page(page_text, avg_conf=avg_conf, low_conf=low_conf, line_conf=line_conf)
+                    if not (page_text or "").strip() and fast_ocr and not advanced_ocr:
+                        try:
+                            page_text, avg_conf, low_conf, line_conf = ocr_image(
+                                page, lang=lang, advanced=False, fast=False
+                            )
+                            if (page_text or "").strip():
+                                warnings.append(f"Fallback OCR used for {file.filename}.")
+                                _add_page(page_text, avg_conf=avg_conf, low_conf=low_conf, line_conf=line_conf)
+                        except Exception:
+                            pass
+                    if not (page_text or "").strip() and not advanced_ocr:
+                        try:
+                            page_text, avg_conf, low_conf, line_conf = ocr_image(
+                                page, lang=lang, advanced=True, fast=False
+                            )
+                            if (page_text or "").strip():
+                                warnings.append(f"Fallback OCR used for {file.filename}.")
+                                _add_page(page_text, avg_conf=avg_conf, low_conf=low_conf, line_conf=line_conf)
+                        except Exception:
+                            pass
 
                 if privacy_mode and _supabase_only():
                     try:
@@ -309,6 +329,25 @@ def register_scan_routes(app):
                 else:
                     warnings.append(f"OCR failed on {file.filename}: {exc}")
                     continue
+
+            if not (page_text or "").strip() and fast_ocr and not advanced_ocr:
+                try:
+                    page_text, avg_conf, low_conf, line_conf = ocr_image(
+                        image, lang=lang, advanced=False, fast=False
+                    )
+                    if (page_text or "").strip():
+                        warnings.append(f"Fallback OCR used for {file.filename}.")
+                except Exception:
+                    pass
+            if not (page_text or "").strip() and not advanced_ocr:
+                try:
+                    page_text, avg_conf, low_conf, line_conf = ocr_image(
+                        image, lang=lang, advanced=True, fast=False
+                    )
+                    if (page_text or "").strip():
+                        warnings.append(f"Fallback OCR used for {file.filename}.")
+                except Exception:
+                    pass
 
             _add_page(page_text, avg_conf=avg_conf, low_conf=low_conf, line_conf=line_conf)
 
@@ -425,7 +464,7 @@ def register_scan_routes(app):
         try:
             upsert_scan(scan)
         except Exception as exc:
-            return None, warnings, f"Database save failed: {exc}"
+            warnings.append(f"Database save failed: {exc}")
         if use_flash:
             for warn in warnings:
                 flash(warn, "warn")

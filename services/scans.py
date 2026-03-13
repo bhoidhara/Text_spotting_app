@@ -25,8 +25,8 @@ def _supabase_ready():
 def _supabase_only():
     forced = os.getenv("FORCE_SUPABASE_ONLY")
     if forced is None:
-        # Default to local fallback when Supabase credentials are missing.
-        return _supabase_ready()
+        # Default to allowing local fallback for reliability.
+        return False
     return forced.lower() not in {"false", "0", "no"}
 
 

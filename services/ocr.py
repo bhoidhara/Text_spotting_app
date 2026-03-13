@@ -37,6 +37,21 @@ except Exception:
     SpellChecker = None
 
 
+def _ensure_tessdata_prefix():
+    if os.getenv("TESSDATA_PREFIX"):
+        return
+    candidates = [
+        "/usr/share/tesseract-ocr/5/tessdata",
+        "/usr/share/tesseract-ocr/4.00/tessdata",
+        "/usr/share/tesseract-ocr/tessdata",
+        "/usr/share/tessdata",
+    ]
+    for path in candidates:
+        if os.path.isdir(path):
+            os.environ["TESSDATA_PREFIX"] = path
+            break
+
+
 def tesseract_status():
     status = {
         "pytesseract_ok": False,
@@ -52,6 +67,7 @@ def tesseract_status():
     status["pytesseract_ok"] = True
     if status["tesseract_cmd"]:
         pytesseract.pytesseract.tesseract_cmd = status["tesseract_cmd"]
+    _ensure_tessdata_prefix()
 
     try:
         status["tesseract_version"] = str(pytesseract.get_tesseract_version())
@@ -125,8 +141,11 @@ def _preprocess_variants(image, advanced=False):
             pass
         try:
             width, height = base.size
-            upscaled = base.resize((width * 2, height * 2), resample=getattr(base, "LANCZOS", 1))
-            variants.append(("upscale", upscaled))
+            if width * height <= 1500000:
+                upscaled = base.resize(
+                    (width * 2, height * 2), resample=getattr(base, "LANCZOS", 1)
+                )
+                variants.append(("upscale", upscaled))
         except Exception:
             pass
     variants.append(("original", image))
@@ -206,7 +225,7 @@ def ocr_image(image, lang="eng", advanced=False, fast=False):
         except Exception:
             pass
 
-    max_side = 1400 if fast else 2200 if advanced else 1800
+    max_side = 1200 if fast else 2000 if advanced else 1600
     image = _downscale_image(image, max_side)
 
     variants = _preprocess_variants(image, advanced=advanced)

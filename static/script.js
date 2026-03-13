@@ -385,14 +385,12 @@
       formData.append("lang", langForRequest);
       formData.append("cleanup", "on");
       formData.append("detect_intent", "on");
-      if (advanced) {
-        formData.append("autocorrect", "on");
-        formData.append("student_mode", "on");
-      }
+      formData.append("autocorrect", "on");
+      formData.append("student_mode", "on");
       formData.append("skip_storage", "on");
       if (advanced) {
         formData.append("advanced_ocr", "on");
-      } else if (autoMode || isMobile) {
+      } else if (autoMode) {
         formData.append("fast_ocr", "on");
       }
 
@@ -637,8 +635,6 @@
         });
         if (!advancedMode) {
           formData.append("fast_ocr", "on");
-          formData.delete("autocorrect");
-          formData.delete("student_mode");
         } else if (!userAdvanced) {
           formData.append("advanced_ocr", "on");
         }
