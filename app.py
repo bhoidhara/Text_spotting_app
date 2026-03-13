@@ -18,7 +18,7 @@ app.secret_key = os.getenv("SECRET_KEY", "dev-secret-change")
 app.permanent_session_lifetime = timedelta(days=int(os.getenv("SESSION_DAYS", "30")))
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-max_upload_mb = int(os.getenv("MAX_UPLOAD_MB", "150"))
+max_upload_mb = int(os.getenv("MAX_UPLOAD_MB", "80"))
 soft_upload_mb = int(os.getenv("SOFT_UPLOAD_MB", "0"))
 app.config.update(
     UPLOAD_FOLDER=os.path.join(BASE_DIR, "uplaod"),
@@ -28,8 +28,8 @@ app.config.update(
     MAX_CONTENT_LENGTH=max_upload_mb * 1024 * 1024,
     MAX_UPLOAD_MB=max_upload_mb,
     SOFT_UPLOAD_MB=soft_upload_mb,
-    MAX_PDF_PAGES=int(os.getenv("MAX_PDF_PAGES", "0")),
-    MAX_IMAGE_SIDE=int(os.getenv("MAX_IMAGE_SIDE", "10000")),
+    MAX_PDF_PAGES=int(os.getenv("MAX_PDF_PAGES", "16")),
+    MAX_IMAGE_SIDE=int(os.getenv("MAX_IMAGE_SIDE", "4200")),
 )
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)

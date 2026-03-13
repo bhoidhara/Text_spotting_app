@@ -38,3 +38,11 @@ services:
         value: "1"
       - key: FLASK_ENV
         value: "production"
+      - key: MAX_UPLOAD_MB
+        value: "80"
+      - key: MAX_PDF_PAGES
+        value: "16"
+      - key: MAX_IMAGE_SIDE
+        value: "4200"
+      - key: SOFT_UPLOAD_MB
+        value: "0"
