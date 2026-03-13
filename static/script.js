@@ -390,7 +390,7 @@
       formData.append("skip_storage", "on");
       if (advanced) {
         formData.append("advanced_ocr", "on");
-      } else if (autoMode) {
+      } else if (autoMode || isMobile) {
         formData.append("fast_ocr", "on");
       }
 
@@ -614,8 +614,9 @@
     try {
       const runUpload = async (useAdvanced) => {
         const formData = new FormData(form);
+        const forceFast = isMobile;
         const userAdvanced = formData.get("advanced_ocr") === "on";
-        const advancedMode = userAdvanced || useAdvanced;
+        const advancedMode = !forceFast && (userAdvanced || useAdvanced);
         const selectedLang = formData.get("lang") || "eng";
         const fastLang = selectedLang.includes("+") ? selectedLang.split("+")[0] : selectedLang;
         const langForRequest = advancedMode ? selectedLang : fastLang;
@@ -625,8 +626,11 @@
           return { ok: false, errorMessage: "Please select at least one image." };
         }
         formData.delete("images");
-        const maxSide = advancedMode ? 1800 : 1050;
-        const quality = advancedMode ? 0.85 : 0.7;
+        if (forceFast) {
+          formData.delete("advanced_ocr");
+        }
+        const maxSide = advancedMode ? 1800 : forceFast ? 900 : 1050;
+        const quality = advancedMode ? 0.85 : forceFast ? 0.65 : 0.7;
         const processed = await Promise.all(
           files.map((file) => compressImage(file, maxSide, quality))
         );
@@ -766,5 +770,46 @@
     await deferredPrompt.userChoice;
     deferredPrompt = null;
     hideInstall();
+  });
+})();
+
+(function () {
+  const STORAGE_KEY = "visiontext_lang";
+  const selectors = [
+    'select[name="lang"]',
+    'select[name="camera_lang"]',
+    'select[data-lang-picker="ocr"]',
+  ];
+  const selects = Array.from(
+    document.querySelectorAll(selectors.join(","))
+  ).filter(Boolean);
+  if (!selects.length) {
+    return;
+  }
+
+  const setSelectValue = (select, value) => {
+    const optionValues = Array.from(select.options).map((opt) => opt.value);
+    if (optionValues.includes(value)) {
+      select.value = value;
+      return true;
+    }
+    return false;
+  };
+
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    selects.forEach((select) => setSelectValue(select, saved));
+  }
+
+  selects.forEach((select) => {
+    select.addEventListener("change", () => {
+      const value = select.value;
+      localStorage.setItem(STORAGE_KEY, value);
+      selects.forEach((other) => {
+        if (other !== select) {
+          setSelectValue(other, value);
+        }
+      });
+    });
   });
 })();

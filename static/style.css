@@ -147,6 +147,41 @@ body.theme-dark .brand-mark {
   margin: 0 auto;
 }
 
+.quick-settings {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 16px;
+}
+
+.quick-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fffdfa;
+  box-shadow: var(--shadow-soft);
+}
+
+body.theme-dark .quick-card {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(15, 17, 22, 0.92);
+  box-shadow: var(--shadow-strong);
+}
+
+.quick-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+body.theme-dark .quick-label {
+  color: var(--auth-muted);
+}
+
 body.auth-page .page {
   padding: 0;
 }
@@ -1435,6 +1470,16 @@ body.theme-dark .muted {
 
   .result-header .pill {
     align-self: flex-start;
+  }
+
+  .quick-settings {
+    justify-content: flex-start;
+  }
+
+  .quick-card {
+    width: 100%;
+    border-radius: 16px;
+    justify-content: space-between;
   }
 }
 

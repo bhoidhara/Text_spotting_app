@@ -201,11 +201,15 @@ def _needs_lang_fallback(exc):
     return "failed loading language" in message or "error opening data file" in message
 
 
-def _run_tesseract(image, lang, config):
-    text = pytesseract.image_to_string(image, lang=lang, config=config)
+def _run_tesseract(image, lang, config, timeout_s=20):
+    text = pytesseract.image_to_string(image, lang=lang, config=config, timeout=timeout_s)
     try:
         data = pytesseract.image_to_data(
-            image, lang=lang, config=config, output_type=pytesseract.Output.DICT
+            image,
+            lang=lang,
+            config=config,
+            output_type=pytesseract.Output.DICT,
+            timeout=timeout_s,
         )
     except Exception:
         data = {"text": [], "conf": []}
@@ -225,7 +229,7 @@ def ocr_image(image, lang="eng", advanced=False, fast=False):
         except Exception:
             pass
 
-    max_side = 1200 if fast else 2000 if advanced else 1600
+    max_side = 1000 if fast else 1800 if advanced else 1500
     image = _downscale_image(image, max_side)
 
     variants = _preprocess_variants(image, advanced=advanced)
@@ -236,21 +240,18 @@ def ocr_image(image, lang="eng", advanced=False, fast=False):
     best = {"score": -1, "text": "", "avg_conf": 0.0, "low_conf": [], "line_conf": []}
     configs = ["--oem 3 --psm 6"]
     if advanced:
-        configs = [
-            "--oem 3 --psm 6",
-            "--oem 3 --psm 4",
-            "--oem 3 --psm 11",
-            "--oem 3 --psm 3",
-        ]
+        configs = ["--oem 3 --psm 6", "--oem 3 --psm 4"]
+
+    timeout_s = 12 if fast else 18 if not advanced else 24
 
     for _, candidate in variants:
         for config in configs:
             try:
-                text, data = _run_tesseract(candidate, lang, config)
+                text, data = _run_tesseract(candidate, lang, config, timeout_s=timeout_s)
             except Exception as exc:
                 if lang != "eng" and _needs_lang_fallback(exc):
                     try:
-                        text, data = _run_tesseract(candidate, "eng", config)
+                        text, data = _run_tesseract(candidate, "eng", config, timeout_s=timeout_s)
                     except Exception as inner_exc:
                         last_exc = inner_exc
                         continue
