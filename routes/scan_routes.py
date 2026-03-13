@@ -96,6 +96,12 @@ def register_scan_routes(app):
         store_local = os.getenv("STORE_LOCAL_UPLOADS", "false").lower() not in {"false", "0", "no"}
         upload_root = current_app.config["UPLOAD_FOLDER"]
         warnings = []
+        max_upload_mb = int(current_app.config.get("MAX_UPLOAD_MB", 40))
+        soft_upload_mb = int(current_app.config.get("SOFT_UPLOAD_MB", 0))
+        max_bytes = max_upload_mb * 1024 * 1024
+        soft_bytes = soft_upload_mb * 1024 * 1024
+        max_pdf_pages = int(current_app.config.get("MAX_PDF_PAGES", 0))
+        max_image_side = int(current_app.config.get("MAX_IMAGE_SIDE", 3200))
 
         storage_env_on = os.getenv("SUPABASE_USE_STORAGE", "true").lower() not in {"false", "0", "no"}
         storage_available = False
@@ -140,6 +146,28 @@ def register_scan_routes(app):
                     )
 
         for file in files:
+            size_bytes = None
+            try:
+                if hasattr(file, "stream") and hasattr(file.stream, "seek"):
+                    pos = file.stream.tell()
+                    file.stream.seek(0, os.SEEK_END)
+                    size_bytes = file.stream.tell()
+                    file.stream.seek(pos or 0)
+            except Exception:
+                size_bytes = None
+            if soft_upload_mb > 0 and size_bytes:
+                if size_bytes > max_bytes:
+                    warnings.append(
+                        f"{file.filename} is very large. Auto-optimizing for speed."
+                    )
+                    advanced_ocr = False
+                    fast_ocr = True
+                elif size_bytes > soft_bytes:
+                    warnings.append(
+                        f"{file.filename} is large. Auto-optimizing for speed."
+                    )
+                    advanced_ocr = False
+                    fast_ocr = True
             mime = (getattr(file, "mimetype", "") or "").lower()
             is_image_mime = mime.startswith("image/")
             is_text_mime = mime.startswith("text/") or mime in {
@@ -281,13 +309,48 @@ def register_scan_routes(app):
 
             if ext in {".pdf"}:
                 try:
-                    from pdf2image import convert_from_path
+                    from pdf2image import convert_from_path, pdfinfo_from_path
                 except Exception as exc:
                     warnings.append(f"PDF support not installed: {exc}")
                     continue
                 try:
-                    pdf_dpi = 200 if advanced_ocr else 120 if fast_ocr else 160
-                    pages = convert_from_path(file_path, dpi=pdf_dpi)
+                    base_dpi = 180 if advanced_ocr else 110 if fast_ocr else 150
+                    first_page = 1
+                    last_page = None
+                    total_pages = 0
+                    try:
+                        info = pdfinfo_from_path(file_path)
+                        total_pages = safe_int(info.get("Pages", 0), 0)
+                    except Exception:
+                        total_pages = 0
+
+                    pdf_dpi = base_dpi
+                    if total_pages >= 25:
+                        pdf_dpi = max(80, base_dpi - 60)
+                        warnings.append(
+                            f"Large PDF detected ({total_pages} pages). Using lower DPI for speed."
+                        )
+                    elif total_pages >= 12:
+                        pdf_dpi = max(90, base_dpi - 40)
+                        warnings.append(
+                            f"PDF has {total_pages} pages. Using optimized DPI for speed."
+                        )
+
+                    if max_pdf_pages > 0:
+                        last_page = max_pdf_pages
+                        if total_pages and total_pages <= max_pdf_pages:
+                            last_page = total_pages
+                        if total_pages and total_pages > max_pdf_pages:
+                            warnings.append(
+                                f"PDF has {total_pages} pages. Processing first {max_pdf_pages} pages for speed."
+                            )
+                        elif total_pages == 0:
+                            warnings.append(
+                                f"Processing first {max_pdf_pages} pages for speed."
+                            )
+                    pages = convert_from_path(
+                        file_path, dpi=pdf_dpi, first_page=first_page, last_page=last_page
+                    )
                 except Exception as exc:
                     warnings.append(f"Failed to read PDF {file.filename}: {exc}")
                     pages = []
@@ -327,7 +390,7 @@ def register_scan_routes(app):
                             continue
                     if fast_ocr and not advanced_ocr:
                         short_text = len((page_text or "").strip()) < 12
-                        low_conf = avg_conf < 40
+                        low_conf = avg_conf and avg_conf < 40
                         if short_text or low_conf:
                             try:
                                 page_text, avg_conf, low_conf, line_conf = ocr_image(
@@ -378,6 +441,20 @@ def register_scan_routes(app):
                 warnings.append(f"Failed to open {file.filename}")
                 continue
 
+            if max_image_side and (
+                image.width > max_image_side or image.height > max_image_side
+            ):
+                try:
+                    image.thumbnail(
+                        (max_image_side, max_image_side),
+                        resample=getattr(image, "LANCZOS", 1),
+                    )
+                    warnings.append(
+                        f"Large image scaled down for faster OCR: {file.filename}"
+                    )
+                except Exception:
+                    pass
+
             if crop_box:
                 try:
                     image = image.crop(crop_box)
@@ -413,7 +490,7 @@ def register_scan_routes(app):
                     continue
             if fast_ocr and not advanced_ocr:
                 short_text = len((page_text or "").strip()) < 12
-                low_conf = avg_conf < 40
+                low_conf = avg_conf and avg_conf < 40
                 if short_text or low_conf:
                     try:
                         page_text, avg_conf, low_conf, line_conf = ocr_image(

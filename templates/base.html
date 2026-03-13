@@ -48,7 +48,7 @@
       {% endif %}
     {% endwith %}
 
-    {% if session.get('user_id') %}
+    {% if session.get('user_id') and body_class and 'auth-page' not in body_class %}
       <section class="quick-settings" id="quick-settings">
         <div class="quick-card">
           <span class="quick-label">Default OCR Language</span>

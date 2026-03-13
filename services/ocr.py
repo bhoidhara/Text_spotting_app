@@ -201,8 +201,10 @@ def _needs_lang_fallback(exc):
     return "failed loading language" in message or "error opening data file" in message
 
 
-def _run_tesseract(image, lang, config, timeout_s=20):
+def _run_tesseract(image, lang, config, timeout_s=20, collect_data=True):
     text = pytesseract.image_to_string(image, lang=lang, config=config, timeout=timeout_s)
+    if not collect_data:
+        return text, {"text": [], "conf": []}
     try:
         data = pytesseract.image_to_data(
             image,
@@ -229,7 +231,7 @@ def ocr_image(image, lang="eng", advanced=False, fast=False):
         except Exception:
             pass
 
-    max_side = 1000 if fast else 1800 if advanced else 1500
+    max_side = 900 if fast else 1800 if advanced else 1500
     image = _downscale_image(image, max_side)
 
     variants = _preprocess_variants(image, advanced=advanced)
@@ -242,16 +244,21 @@ def ocr_image(image, lang="eng", advanced=False, fast=False):
     if advanced:
         configs = ["--oem 3 --psm 6", "--oem 3 --psm 4"]
 
-    timeout_s = 12 if fast else 18 if not advanced else 24
+    timeout_s = 10 if fast else 18 if not advanced else 24
+    collect_data = not fast
 
     for _, candidate in variants:
         for config in configs:
             try:
-                text, data = _run_tesseract(candidate, lang, config, timeout_s=timeout_s)
+                text, data = _run_tesseract(
+                    candidate, lang, config, timeout_s=timeout_s, collect_data=collect_data
+                )
             except Exception as exc:
                 if lang != "eng" and _needs_lang_fallback(exc):
                     try:
-                        text, data = _run_tesseract(candidate, "eng", config, timeout_s=timeout_s)
+                        text, data = _run_tesseract(
+                            candidate, "eng", config, timeout_s=timeout_s, collect_data=collect_data
+                        )
                     except Exception as inner_exc:
                         last_exc = inner_exc
                         continue
