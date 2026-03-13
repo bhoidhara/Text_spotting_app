@@ -244,7 +244,7 @@ def ocr_image(image, lang="eng", advanced=False, fast=False, rescue=False):
             pass
 
     if rescue:
-        max_side = 1400
+        max_side = 2000
     else:
         max_side = 800 if fast else 1800 if advanced else 1500
     image = _downscale_image(image, max_side)
@@ -253,8 +253,8 @@ def ocr_image(image, lang="eng", advanced=False, fast=False, rescue=False):
         try:
             width, height = image.size
             max_dim = max(width, height)
-            if max_dim and max_dim < 1200:
-                scale = min(2.5, 2200 / max_dim)
+            if max_dim and max_dim < 1300:
+                scale = min(2.6, 2600 / max_dim)
                 new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
                 image = image.resize(new_size, resample=getattr(image, "LANCZOS", 1))
         except Exception:
@@ -273,13 +273,18 @@ def ocr_image(image, lang="eng", advanced=False, fast=False, rescue=False):
             "--oem 3 --psm 6",
             "--oem 3 --psm 4",
             "--oem 3 --psm 11",
-            "--oem 3 --psm 3",
+            "--oem 3 --psm 7",
+            "--oem 3 --psm 13",
+            "--oem 1 --psm 6",
+            "--oem 1 --psm 4",
+            "--oem 1 --psm 11",
+            "--oem 1 --psm 7",
         ]
     elif advanced:
         configs = ["--oem 3 --psm 6", "--oem 3 --psm 4"]
 
     if rescue:
-        timeout_s = 12
+        timeout_s = 15
     else:
         timeout_s = 6 if fast else 18 if not advanced else 24
     collect_data = not fast or rescue
