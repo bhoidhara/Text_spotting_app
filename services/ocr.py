@@ -218,7 +218,7 @@ def _run_tesseract(image, lang, config, timeout_s=20, collect_data=True):
     return text, data
 
 
-def ocr_image(image, lang="eng", advanced=False, fast=False):
+def ocr_image(image, lang="eng", advanced=False, fast=False, rescue=False):
     status = tesseract_status()
     if not status.get("pytesseract_ok"):
         raise RuntimeError("pytesseract is not installed.")
@@ -231,21 +231,46 @@ def ocr_image(image, lang="eng", advanced=False, fast=False):
         except Exception:
             pass
 
-    max_side = 800 if fast else 1800 if advanced else 1500
+    if rescue:
+        max_side = 1400
+    else:
+        max_side = 800 if fast else 1800 if advanced else 1500
     image = _downscale_image(image, max_side)
 
-    variants = _preprocess_variants(image, advanced=advanced)
-    if fast:
+    if rescue:
+        try:
+            width, height = image.size
+            max_dim = max(width, height)
+            if max_dim and max_dim < 1200:
+                scale = min(2.5, 2200 / max_dim)
+                new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
+                image = image.resize(new_size, resample=getattr(image, "LANCZOS", 1))
+        except Exception:
+            pass
+        variants = _preprocess_variants(image, advanced=True)
+    else:
+        variants = _preprocess_variants(image, advanced=advanced)
+    if fast and not rescue:
         # Keep the fastest path for mobile auto-scan.
         variants = [("original", image)]
     last_exc = None
     best = {"score": -1, "text": "", "avg_conf": 0.0, "low_conf": [], "line_conf": []}
     configs = ["--oem 3 --psm 6"]
-    if advanced:
+    if rescue:
+        configs = [
+            "--oem 3 --psm 6",
+            "--oem 3 --psm 4",
+            "--oem 3 --psm 11",
+            "--oem 3 --psm 3",
+        ]
+    elif advanced:
         configs = ["--oem 3 --psm 6", "--oem 3 --psm 4"]
 
-    timeout_s = 6 if fast else 18 if not advanced else 24
-    collect_data = not fast
+    if rescue:
+        timeout_s = 12
+    else:
+        timeout_s = 6 if fast else 18 if not advanced else 24
+    collect_data = not fast or rescue
 
     for _, candidate in variants:
         for config in configs:
@@ -268,6 +293,9 @@ def ocr_image(image, lang="eng", advanced=False, fast=False):
 
             avg_conf, low_conf_words, line_confidence = _summarize_data(data)
             text_clean = (text or "").strip()
+            if not text_clean and line_confidence:
+                text = "\n".join(item.get("text", "") for item in line_confidence).strip()
+                text_clean = text
             score = len(text_clean) + (avg_conf * 2)
             if score > best["score"]:
                 best = {

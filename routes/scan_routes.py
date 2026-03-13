@@ -34,14 +34,30 @@ from utils.helpers import allowed_file, now_iso, safe_int, safe_slug
 from werkzeug.utils import secure_filename
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageFile
 except Exception:
     Image = None
+    ImageFile = None
+
+if ImageFile is not None:
+    try:
+        ImageFile.LOAD_TRUNCATED_IMAGES = True
+    except Exception:
+        pass
 
 
 def register_scan_routes(app):
     def _api_user_id():
         return request.headers.get("X-User-Id") or session.get("user_id")
+
+    def _mobile_rescue_langs(lang_code):
+        if not lang_code:
+            return []
+        if "+" in lang_code:
+            return []
+        if lang_code == "eng":
+            return []
+        return [f"{lang_code}+eng", f"eng+{lang_code}"]
 
     def _build_crop_box():
         crop_x = request.form.get("crop_x")
@@ -470,6 +486,30 @@ def register_scan_routes(app):
                                 _add_page(page_text, avg_conf=avg_conf, low_conf=low_conf, line_conf=line_conf)
                         except Exception:
                             pass
+                    if is_mobile and not (page_text or "").strip() and fast_ocr and not advanced_ocr:
+                        try:
+                            page_text, avg_conf, low_conf, line_conf = ocr_image(
+                                page, lang=lang, advanced=False, fast=False, rescue=True
+                            )
+                            if (page_text or "").strip():
+                                warnings.append(f"Mobile OCR rescue used for {file.filename}.")
+                                _add_page(page_text, avg_conf=avg_conf, low_conf=low_conf, line_conf=line_conf)
+                        except Exception:
+                            pass
+                    if is_mobile and not (page_text or "").strip() and fast_ocr and not advanced_ocr:
+                        for rescue_lang in _mobile_rescue_langs(lang):
+                            try:
+                                page_text, avg_conf, low_conf, line_conf = ocr_image(
+                                    page, lang=rescue_lang, advanced=False, fast=False, rescue=True
+                                )
+                                if (page_text or "").strip():
+                                    warnings.append(
+                                        f"Mobile OCR rescue used ({rescue_lang}) for {file.filename}."
+                                    )
+                                    _add_page(page_text, avg_conf=avg_conf, low_conf=low_conf, line_conf=line_conf)
+                                    break
+                            except Exception:
+                                continue
                     if not (page_text or "").strip() and not advanced_ocr and not fast_ocr:
                         try:
                             page_text, avg_conf, low_conf, line_conf = ocr_image(
@@ -497,11 +537,15 @@ def register_scan_routes(app):
             try:
                 image = Image.open(file_path)
             except Exception:
-                if unknown_type:
-                    warnings.append(f"Skipped unsupported file: {file.filename}")
-                else:
-                    warnings.append(f"Failed to open {file.filename}")
-                continue
+                try:
+                    with open(file_path, "rb") as handle:
+                        image = Image.open(io.BytesIO(handle.read()))
+                except Exception:
+                    if unknown_type:
+                        warnings.append(f"Skipped unsupported file: {file.filename}")
+                    else:
+                        warnings.append(f"Failed to open {file.filename}")
+                    continue
             any_supported = True
             any_ocr_attempted = True
 
@@ -574,6 +618,28 @@ def register_scan_routes(app):
                         warnings.append(f"Fallback OCR used for {file.filename}.")
                 except Exception:
                     pass
+            if is_mobile and not (page_text or "").strip() and fast_ocr and not advanced_ocr:
+                try:
+                    page_text, avg_conf, low_conf, line_conf = ocr_image(
+                        image, lang=lang, advanced=False, fast=False, rescue=True
+                    )
+                    if (page_text or "").strip():
+                        warnings.append(f"Mobile OCR rescue used for {file.filename}.")
+                except Exception:
+                    pass
+            if is_mobile and not (page_text or "").strip() and fast_ocr and not advanced_ocr:
+                for rescue_lang in _mobile_rescue_langs(lang):
+                    try:
+                        page_text, avg_conf, low_conf, line_conf = ocr_image(
+                            image, lang=rescue_lang, advanced=False, fast=False, rescue=True
+                        )
+                        if (page_text or "").strip():
+                            warnings.append(
+                                f"Mobile OCR rescue used ({rescue_lang}) for {file.filename}."
+                            )
+                            break
+                    except Exception:
+                        continue
             if not (page_text or "").strip() and not advanced_ocr and not fast_ocr:
                 try:
                     page_text, avg_conf, low_conf, line_conf = ocr_image(

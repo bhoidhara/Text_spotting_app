@@ -1,4 +1,17 @@
 (function () {
+  const isMobile = window.matchMedia("(max-width: 700px)").matches;
+  if (!isMobile) {
+    return;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
+  fetch("/api/health", { cache: "no-store", signal: controller.signal })
+    .catch(() => {})
+    .finally(() => clearTimeout(timeoutId));
+})();
+
+(function () {
   const copyButtons = document.querySelectorAll("[data-copy-target]");
   copyButtons.forEach((button) => {
     button.addEventListener("click", () => {
@@ -626,6 +639,10 @@
   if (!isMobile) {
     return;
   }
+  const preferNative = form.getAttribute("data-mobile-upload") !== "ajax";
+  if (preferNative) {
+    return;
+  }
 
   const status = document.getElementById("upload-status");
   const resultCard = document.getElementById("upload-result");
@@ -818,7 +835,18 @@
         attempt = await runUpload(true, false);
       }
       if (!attempt.ok) {
-        throw new Error(attempt.errorMessage || "OCR failed.");
+        const msg = String(attempt.errorMessage || "OCR failed.");
+        const retryNative =
+          isMobile &&
+          (msg.toLowerCase().includes("no valid") ||
+            msg.toLowerCase().includes("unsupported") ||
+            msg.toLowerCase().includes("upload failed"));
+        if (retryNative) {
+          setStatus("Retrying with native upload...");
+          form.submit();
+          return;
+        }
+        throw new Error(msg);
       }
 
       const payload = attempt.payload || {};

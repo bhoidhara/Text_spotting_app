@@ -1,4 +1,4 @@
-const CACHE_NAME = "visiontext-v57";
+const CACHE_NAME = "visiontext-v61";
 const STATIC_ASSETS = [
   "/",
   "/login",
@@ -36,6 +36,18 @@ self.addEventListener("fetch", (event) => {
 
   const request = event.request;
   const url = new URL(request.url);
+  const pathname = url.pathname || "";
+
+  if (pathname.endsWith("/static/script.js") || pathname.endsWith("/static/style.css")) {
+    event.respondWith(
+      fetch(request).then((response) => {
+        const responseClone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
+        return response;
+      })
+    );
+    return;
+  }
 
   if (request.mode === "navigate") {
     event.respondWith(
