@@ -106,6 +106,8 @@ def register_scan_routes(app):
         combined_line_conf = []
         image_paths = []
         page_number = 0
+        any_supported = False
+        any_ocr_attempted = False
         scan_id = str(uuid4())
         safe_user = safe_slug(user_id)
         store_local = os.getenv("STORE_LOCAL_UPLOADS", "false").lower() not in {"false", "0", "no"}
@@ -174,6 +176,13 @@ def register_scan_routes(app):
                         }
                     )
 
+        def _looks_like_pdf(path):
+            try:
+                with open(path, "rb") as handle:
+                    return handle.read(4) == b"%PDF"
+            except Exception:
+                return False
+
         for file in files:
             size_bytes = None
             try:
@@ -213,13 +222,19 @@ def register_scan_routes(app):
                 "text/rtf",
                 "text/csv",
             }
-            if not file or (
-                not allowed_file(file.filename, current_app.config["ALLOWED_EXT"])
-                and not is_image_mime
-                and not is_text_mime
-            ):
-                warnings.append(f"Skipped unsupported file: {file.filename}")
+            if not file:
                 continue
+            allowed_by_ext = allowed_file(file.filename, current_app.config["ALLOWED_EXT"])
+            unknown_type = False
+            if not allowed_by_ext and not is_image_mime and not is_text_mime:
+                unknown_type = True
+                any_supported = True
+                warnings.append(
+                    f"Unknown file type: {file.filename}. Trying image decode."
+                )
+            else:
+                any_supported = True
+            any_supported = True
 
             filename = f"{uuid4().hex}_{secure_filename(file.filename)}"
             local_dir = os.path.join(upload_root, safe_user, scan_id)
@@ -229,6 +244,9 @@ def register_scan_routes(app):
             file.save(file_path)
 
             _, ext = os.path.splitext(file.filename.lower())
+            if not ext and _looks_like_pdf(file_path):
+                ext = ".pdf"
+                any_supported = True
 
             if ext in {".txt"} or is_text_mime:
                 try:
@@ -394,6 +412,8 @@ def register_scan_routes(app):
                     warnings.append(f"Failed to read PDF {file.filename}: {exc}")
                     pages = []
 
+                if pages:
+                    any_ocr_attempted = True
                 for page in pages:
                     if crop_box:
                         try:
@@ -477,8 +497,13 @@ def register_scan_routes(app):
             try:
                 image = Image.open(file_path)
             except Exception:
-                warnings.append(f"Failed to open {file.filename}")
+                if unknown_type:
+                    warnings.append(f"Skipped unsupported file: {file.filename}")
+                else:
+                    warnings.append(f"Failed to open {file.filename}")
                 continue
+            any_supported = True
+            any_ocr_attempted = True
 
             if max_image_side and (
                 image.width > max_image_side or image.height > max_image_side
@@ -607,13 +632,17 @@ def register_scan_routes(app):
                         pass
 
         if not combined_text:
-            if warnings:
-                return None, warnings, f"No valid images were processed. {warnings[0]}"
-            if empty_pages:
+            if any_ocr_attempted or empty_pages:
                 return (
                     None,
                     warnings,
                     "OCR ran but no readable text was found. Try a clearer image or check OCR setup.",
+                )
+            if any_supported:
+                return (
+                    None,
+                    warnings,
+                    "No readable text could be extracted from the files. Try clearer images or a different file.",
                 )
             return (
                 None,

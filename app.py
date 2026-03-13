@@ -16,6 +16,7 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-change")
 app.permanent_session_lifetime = timedelta(days=int(os.getenv("SESSION_DAYS", "30")))
+app.config["APP_BUILD"] = os.getenv("APP_BUILD", "v56")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 max_upload_mb = safe_int(os.getenv("MAX_UPLOAD_MB"), 80)
@@ -52,6 +53,10 @@ except Exception as exc:
         return {"ok": False, "error": "OCR routes failed to load."}, 500
 register_history_routes(app)
 register_settings_routes(app)
+
+@app.context_processor
+def inject_build():
+    return {"app_build": app.config.get("APP_BUILD", "v56")}
 
 
 @app.route("/service-worker.js")

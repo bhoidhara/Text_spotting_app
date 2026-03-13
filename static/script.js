@@ -421,7 +421,7 @@
       const formData = new FormData();
       const selectedLang = langSelect ? langSelect.value : "eng";
       const fastLang = selectedLang.includes("+") ? selectedLang.split("+")[0] : selectedLang;
-      const langForRequest = advanced || !isMobile ? selectedLang : fastLang;
+      const langForRequest = isMobile && tiny ? fastLang : selectedLang;
       formData.append("images", blob, "camera.jpg");
       formData.append("lang", langForRequest);
       formData.append("cleanup", "on");
@@ -710,7 +710,7 @@
         const advancedMode = !forceFast && (userAdvanced || useAdvanced);
         const selectedLang = formData.get("lang") || "eng";
         const fastLang = selectedLang.includes("+") ? selectedLang.split("+")[0] : selectedLang;
-        const langForRequest = advancedMode ? selectedLang : fastLang;
+        const langForRequest = isMobile && tiny ? fastLang : selectedLang;
         formData.set("lang", langForRequest);
         const files = formData.getAll("images");
         if (!files.length || (fileInput && !fileInput.files.length)) {
