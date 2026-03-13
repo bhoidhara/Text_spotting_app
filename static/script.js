@@ -361,7 +361,7 @@
     const autoBoost = autoMode && autoAttempts > 0 && !advanced;
     let scale = 1;
     if (isMobile) {
-      const maxSide = advanced ? 1280 : autoBoost ? 1100 : 820;
+      const maxSide = advanced ? 1200 : autoBoost ? 1000 : 720;
       scale = Math.min(1, maxSide / Math.max(rawWidth, rawHeight));
     }
     canvas.width = Math.round(rawWidth * scale);
@@ -369,7 +369,7 @@
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     try {
-      const quality = advanced ? 0.88 : autoBoost ? 0.8 : 0.66;
+      const quality = advanced ? 0.85 : autoBoost ? 0.75 : 0.6;
       const blob = await new Promise((resolve) =>
         canvas.toBlob(resolve, "image/jpeg", quality)
       );
@@ -395,7 +395,7 @@
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 35000);
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
       const response = await fetch("/api/scans", {
         method: "POST",
         body: formData,
@@ -629,8 +629,8 @@
         if (forceFast) {
           formData.delete("advanced_ocr");
         }
-        const maxSide = advancedMode ? 1800 : forceFast ? 900 : 1050;
-        const quality = advancedMode ? 0.85 : forceFast ? 0.65 : 0.7;
+        const maxSide = advancedMode ? 1800 : forceFast ? 800 : 1050;
+        const quality = advancedMode ? 0.85 : forceFast ? 0.6 : 0.7;
         const processed = await Promise.all(
           files.map((file) => compressImage(file, maxSide, quality))
         );
@@ -645,7 +645,7 @@
         formData.append("skip_storage", "on");
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 35000);
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
         const response = await fetch("/api/scans", {
           method: "POST",
           body: formData,

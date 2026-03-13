@@ -314,7 +314,7 @@ def register_scan_routes(app):
                     warnings.append(f"PDF support not installed: {exc}")
                     continue
                 try:
-                    base_dpi = 180 if advanced_ocr else 110 if fast_ocr else 150
+                    base_dpi = 180 if advanced_ocr else 100 if fast_ocr else 150
                     first_page = 1
                     last_page = None
                     total_pages = 0
