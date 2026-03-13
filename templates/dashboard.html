@@ -3,17 +3,27 @@
 
 {% block content %}
 <section class="dashboard">
-  <div class="dashboard-hero">
-    <div>
-      <p class="eyebrow">Welcome</p>
-      <h2>Ready to scan?</h2>
-      <p class="subtitle">Upload images, run OCR, edit text, and save to your Vision Vault.</p>
+  <div class="app-topbar">
+    <div class="app-brand">
+      <div class="app-icon">V</div>
+      <div>
+        <div class="app-title">VisionText</div>
+        <div class="app-subtitle">AI-Powered Text Extraction</div>
+      </div>
     </div>
-    <div class="dashboard-actions">
-      <a class="button ghost small" href="{{ url_for('profile') }}">Profile</a>
-      <a class="button ghost small" href="{{ url_for('settings') }}">Settings</a>
-      <div class="user-chip">{{ user_email }}</div>
+    <div class="topbar-actions">
+      <a class="button ghost small" href="{{ url_for('logout') }}">Logout</a>
     </div>
+  </div>
+
+  <div class="hero-pill">
+    <span class="hero-pill-dot"></span>
+    <span>Extract text from images or real-time camera</span>
+  </div>
+
+  <div class="app-hero">
+    <h2>Turn Images into <span>Editable Text</span></h2>
+    <p class="subtitle">Upload an image or use your camera in real-time to extract text instantly.</p>
   </div>
 
   <div class="app-tabs">
@@ -86,24 +96,34 @@
         <label>Select images</label>
         <input type="file" name="images" multiple required />
 
-        <label>Recognition Language</label>
-        <select name="lang">
-          <option value="eng">English</option>
-          <option value="hin">Hindi</option>
-          <option value="guj">Gujarati</option>
-          <option value="mar">Marathi</option>
-          <option value="ben">Bengali</option>
-          <option value="tam">Tamil</option>
-          <option value="tel">Telugu</option>
-          <option value="kan">Kannada</option>
-          <option value="mal">Malayalam</option>
-          <option value="pan">Punjabi</option>
-          <option value="urd">Urdu</option>
-          <option value="eng+hin+guj">Auto (EN + HI + GU)</option>
-        </select>
+        <div class="upload-control-card">
+          <div class="control-row">
+            <div class="control-label">Recognition Language</div>
+            <select name="lang">
+              <option value="eng">English</option>
+              <option value="hin">Hindi</option>
+              <option value="guj">Gujarati</option>
+              <option value="mar">Marathi</option>
+              <option value="ben">Bengali</option>
+              <option value="tam">Tamil</option>
+              <option value="tel">Telugu</option>
+              <option value="kan">Kannada</option>
+              <option value="mal">Malayalam</option>
+              <option value="pan">Punjabi</option>
+              <option value="urd">Urdu</option>
+              <option value="eng+hin+guj">Auto (EN + HI + GU)</option>
+            </select>
+          </div>
+          <label class="control-toggle">
+            <span>Advanced OCR Mode</span>
+            <span class="toggle">
+              <input type="checkbox" name="advanced_ocr" />
+              <span class="toggle-slider"></span>
+            </span>
+          </label>
+        </div>
 
         <div class="checkbox-grid">
-          <label><input type="checkbox" name="advanced_ocr" /> Advanced OCR Mode</label>
           <label><input type="checkbox" name="cleanup" checked /> Smart cleanup</label>
           <label><input type="checkbox" name="autocorrect" checked /> Auto-correct (English)</label>
           <label><input type="checkbox" name="detect_intent" checked /> Intent detection</label>

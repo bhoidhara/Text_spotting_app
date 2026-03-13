@@ -48,28 +48,6 @@
       {% endif %}
     {% endwith %}
 
-    {% if session.get('user_id') and body_class and 'auth-page' not in body_class %}
-      <section class="quick-settings" id="quick-settings">
-        <div class="quick-card">
-          <span class="quick-label">Default OCR Language</span>
-          <select id="global-ocr-lang" data-lang-picker="ocr">
-            <option value="eng">English</option>
-            <option value="hin">Hindi</option>
-            <option value="guj">Gujarati</option>
-            <option value="mar">Marathi</option>
-            <option value="ben">Bengali</option>
-            <option value="tam">Tamil</option>
-            <option value="tel">Telugu</option>
-            <option value="kan">Kannada</option>
-            <option value="mal">Malayalam</option>
-            <option value="pan">Punjabi</option>
-            <option value="urd">Urdu</option>
-            <option value="eng+hin+guj">Auto (EN + HI + GU)</option>
-          </select>
-        </div>
-      </section>
-    {% endif %}
-
     {% block content %}{% endblock %}
   </main>
 
