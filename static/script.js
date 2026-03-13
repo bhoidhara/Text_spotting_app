@@ -402,7 +402,7 @@
     const autoBoost = autoMode && autoAttempts > 0 && !advanced;
     let scale = 1;
     if (isMobile) {
-      const maxSide = tiny ? 600 : advanced ? 1200 : autoBoost ? 1000 : 720;
+      const maxSide = tiny ? 800 : advanced ? 1400 : autoBoost ? 1100 : 1000;
       scale = Math.min(1, maxSide / Math.max(rawWidth, rawHeight));
     }
     canvas.width = Math.round(rawWidth * scale);
@@ -410,7 +410,7 @@
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     try {
-      const quality = tiny ? 0.5 : advanced ? 0.85 : autoBoost ? 0.75 : 0.6;
+      const quality = tiny ? 0.6 : advanced ? 0.85 : autoBoost ? 0.75 : 0.7;
       const blob = await new Promise((resolve) =>
         canvas.toBlob(resolve, "image/jpeg", quality)
       );
@@ -720,8 +720,8 @@
         if (forceFast) {
           formData.delete("advanced_ocr");
         }
-        const maxSide = tiny ? 640 : advancedMode ? 1800 : forceFast ? 900 : 1200;
-        const quality = tiny ? 0.55 : advancedMode ? 0.85 : forceFast ? 0.65 : 0.72;
+        const maxSide = tiny ? 900 : advancedMode ? 1800 : forceFast ? 1200 : 1400;
+        const quality = tiny ? 0.65 : advancedMode ? 0.85 : forceFast ? 0.75 : 0.8;
         const processed = await Promise.all(
           files.map((file) => compressImage(file, maxSide, quality))
         );
@@ -785,7 +785,8 @@
 
       const filesNow = fileInput && fileInput.files ? Array.from(fileInput.files) : [];
       const totalSize = filesNow.reduce((sum, file) => sum + (file.size || 0), 0);
-      const preferTiny = isMobile;
+      const largestFile = filesNow.reduce((max, file) => Math.max(max, file.size || 0), 0);
+      const preferTiny = isMobile && (totalSize > 12 * 1024 * 1024 || largestFile > 6 * 1024 * 1024);
       if (preferTiny) {
         setStatus("Optimizing for mobile...");
       }

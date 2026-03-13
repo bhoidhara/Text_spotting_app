@@ -76,7 +76,9 @@ def register_scan_routes(app):
         student_mode = request.form.get("student_mode") == "on"
         advanced_ocr = request.form.get("advanced_ocr") == "on"
         fast_param = request.form.get("fast_ocr")
-        is_mobile = request.form.get("mobile") == "on"
+        ua = (request.headers.get("User-Agent") or "").lower()
+        ua_mobile = any(token in ua for token in ("mobile", "android", "iphone", "ipad", "ipod"))
+        is_mobile = request.form.get("mobile") == "on" or ua_mobile
         mobile_tiny = request.form.get("mobile_tiny") == "on"
         if advanced_ocr:
             fast_ocr = False
