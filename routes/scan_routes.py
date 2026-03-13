@@ -52,11 +52,11 @@ def register_scan_routes(app):
 
     def _mobile_rescue_langs(lang_code):
         if not lang_code:
-            return []
+            return ["eng+hin+guj"]
         if "+" in lang_code:
             return []
         if lang_code == "eng":
-            return []
+            return ["eng+hin+guj"]
         return [f"{lang_code}+eng", f"eng+{lang_code}"]
 
     def _build_crop_box():
@@ -783,6 +783,7 @@ def register_scan_routes(app):
         user_id = get_user_id()
         scan_id = request.args.get("scan_id")
         latest_scan = None
+        cached_scan = session.get("latest_scan_cache")
         try:
             scans = list_scans(user_id)
         except Exception as exc:
@@ -795,6 +796,8 @@ def register_scan_routes(app):
                     latest_scan = None
             except Exception:
                 latest_scan = None
+            if not latest_scan and cached_scan and cached_scan.get("id") == scan_id:
+                latest_scan = cached_scan
         recent_scans = scans[:5]
         tags = sorted({tag for scan in scans for tag in scan.get("tags", [])})
 
@@ -824,6 +827,10 @@ def register_scan_routes(app):
             flash(error, "warn")
             return redirect(url_for("dashboard"))
 
+        try:
+            session["latest_scan_cache"] = scan
+        except Exception:
+            pass
         flash("OCR complete.", "success")
         return redirect(url_for("dashboard", scan_id=scan["id"]))
 

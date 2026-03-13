@@ -4,11 +4,12 @@ import re
 from utils.helpers import safe_int
 
 try:
-    from PIL import ImageEnhance, ImageFilter, ImageOps
+    from PIL import ImageEnhance, ImageFilter, ImageOps, ImageStat
 except Exception:
     ImageEnhance = None
     ImageFilter = None
     ImageOps = None
+    ImageStat = None
 
 try:
     from pillow_heif import register_heif_opener
@@ -115,6 +116,17 @@ def _preprocess_variants(image, advanced=False):
         if advanced:
             try:
                 variants.append(("autocontrast", ImageOps.autocontrast(base)))
+            except Exception:
+                pass
+            try:
+                variants.append(("equalize", ImageOps.equalize(base)))
+            except Exception:
+                pass
+            try:
+                if ImageStat:
+                    mean = ImageStat.Stat(base).mean[0]
+                    if mean < 90:
+                        variants.append(("invert", ImageOps.invert(base)))
             except Exception:
                 pass
     if ImageFilter:

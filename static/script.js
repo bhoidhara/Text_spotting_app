@@ -639,26 +639,31 @@
   if (!isMobile) {
     return;
   }
-  const preferNative = form.getAttribute("data-mobile-upload") !== "ajax";
-  if (preferNative) {
-    return;
-  }
-
   const status = document.getElementById("upload-status");
-  const resultCard = document.getElementById("upload-result");
-  const extractedEl = document.getElementById("upload-extracted");
-  const cleanedEl = document.getElementById("upload-cleaned");
-  const openLink = document.getElementById("upload-open");
   const submitBtn = form.querySelector('button[type="submit"]');
-  const fileInput = form.querySelector('input[type="file"][name="images"]');
-  let mobileBusyRetries = 0;
-  const MAX_MOBILE_BUSY_RETRIES = 1;
-
   const setStatus = (message) => {
     if (status) {
       status.textContent = message;
     }
   };
+  const preferNative = form.getAttribute("data-mobile-upload") !== "ajax";
+  if (preferNative) {
+    form.addEventListener("submit", () => {
+      if (submitBtn) {
+        submitBtn.disabled = true;
+      }
+      setStatus("Uploading... OCR is running.");
+    });
+    return;
+  }
+
+  const resultCard = document.getElementById("upload-result");
+  const extractedEl = document.getElementById("upload-extracted");
+  const cleanedEl = document.getElementById("upload-cleaned");
+  const openLink = document.getElementById("upload-open");
+  const fileInput = form.querySelector('input[type="file"][name="images"]');
+  let mobileBusyRetries = 0;
+  const MAX_MOBILE_BUSY_RETRIES = 1;
 
   const loadImage = (file) =>
     new Promise((resolve, reject) => {
@@ -973,6 +978,9 @@
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     selects.forEach((select) => setSelectValue(select, saved));
+  } else if (window.matchMedia("(max-width: 700px)").matches) {
+    // Default to auto language on mobile for better OCR.
+    selects.forEach((select) => setSelectValue(select, "eng+hin+guj"));
   }
 
   selects.forEach((select) => {
