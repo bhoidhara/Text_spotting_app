@@ -388,6 +388,9 @@
       formData.append("autocorrect", "on");
       formData.append("student_mode", "on");
       formData.append("skip_storage", "on");
+      if (isMobile) {
+        formData.append("mobile", "on");
+      }
       if (advanced) {
         formData.append("advanced_ocr", "on");
       } else if (autoMode || isMobile) {
@@ -643,6 +646,12 @@
           formData.append("advanced_ocr", "on");
         }
         formData.append("skip_storage", "on");
+        if (isMobile) {
+          formData.append("mobile", "on");
+        }
+        if (isMobile) {
+          formData.append("mobile", "on");
+        }
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 60000);

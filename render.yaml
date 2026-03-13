@@ -46,3 +46,7 @@ services:
         value: "4200"
       - key: SOFT_UPLOAD_MB
         value: "0"
+      - key: MAX_PDF_PAGES_MOBILE
+        value: "8"
+      - key: MAX_IMAGE_SIDE_MOBILE
+        value: "2400"

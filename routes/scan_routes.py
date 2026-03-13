@@ -76,11 +76,15 @@ def register_scan_routes(app):
         student_mode = request.form.get("student_mode") == "on"
         advanced_ocr = request.form.get("advanced_ocr") == "on"
         fast_param = request.form.get("fast_ocr")
+        is_mobile = request.form.get("mobile") == "on"
         if advanced_ocr:
             fast_ocr = False
         else:
             # Default to fast OCR for all uploads unless explicitly disabled.
             fast_ocr = fast_param != "off"
+        if is_mobile:
+            advanced_ocr = False
+            fast_ocr = True
         privacy_mode = request.form.get("privacy_mode") == "on"
         skip_storage = request.form.get("skip_storage") == "on"
         crop_box = _build_crop_box()
@@ -102,6 +106,13 @@ def register_scan_routes(app):
         soft_bytes = soft_upload_mb * 1024 * 1024
         max_pdf_pages = int(current_app.config.get("MAX_PDF_PAGES", 0))
         max_image_side = int(current_app.config.get("MAX_IMAGE_SIDE", 3200))
+        mobile_pdf_pages = int(os.getenv("MAX_PDF_PAGES_MOBILE", "8"))
+        mobile_image_side = int(os.getenv("MAX_IMAGE_SIDE_MOBILE", "2400"))
+        if is_mobile:
+            if mobile_pdf_pages > 0:
+                max_pdf_pages = mobile_pdf_pages
+            if mobile_image_side > 0:
+                max_image_side = min(max_image_side, mobile_image_side)
 
         storage_env_on = os.getenv("SUPABASE_USE_STORAGE", "true").lower() not in {"false", "0", "no"}
         storage_available = False
@@ -314,7 +325,7 @@ def register_scan_routes(app):
                     warnings.append(f"PDF support not installed: {exc}")
                     continue
                 try:
-                    base_dpi = 180 if advanced_ocr else 100 if fast_ocr else 150
+                    base_dpi = 180 if advanced_ocr else 90 if fast_ocr else 150
                     first_page = 1
                     last_page = None
                     total_pages = 0
