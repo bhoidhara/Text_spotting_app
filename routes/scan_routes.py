@@ -77,6 +77,7 @@ def register_scan_routes(app):
         advanced_ocr = request.form.get("advanced_ocr") == "on"
         fast_param = request.form.get("fast_ocr")
         is_mobile = request.form.get("mobile") == "on"
+        mobile_tiny = request.form.get("mobile_tiny") == "on"
         if advanced_ocr:
             fast_ocr = False
         else:
@@ -85,8 +86,16 @@ def register_scan_routes(app):
         if is_mobile:
             advanced_ocr = False
             fast_ocr = True
+        mobile_lite = is_mobile or mobile_tiny
+        if mobile_lite:
+            cleanup = False
+            autocorrect = False
+            detect_intent_flag = False
+            student_mode = False
         privacy_mode = request.form.get("privacy_mode") == "on"
         skip_storage = request.form.get("skip_storage") == "on"
+        if mobile_lite:
+            skip_storage = True
         crop_box = _build_crop_box()
 
         combined_text = []
@@ -104,15 +113,22 @@ def register_scan_routes(app):
         soft_upload_mb = int(current_app.config.get("SOFT_UPLOAD_MB", 0))
         max_bytes = max_upload_mb * 1024 * 1024
         soft_bytes = soft_upload_mb * 1024 * 1024
+        mobile_max_upload_mb = int(os.getenv("MAX_UPLOAD_MB_MOBILE", "25"))
+        mobile_max_bytes = mobile_max_upload_mb * 1024 * 1024
         max_pdf_pages = int(current_app.config.get("MAX_PDF_PAGES", 0))
         max_image_side = int(current_app.config.get("MAX_IMAGE_SIDE", 3200))
         mobile_pdf_pages = int(os.getenv("MAX_PDF_PAGES_MOBILE", "8"))
         mobile_image_side = int(os.getenv("MAX_IMAGE_SIDE_MOBILE", "2400"))
+        mobile_pdf_dpi = int(os.getenv("MAX_PDF_DPI_MOBILE", "80"))
         if is_mobile:
             if mobile_pdf_pages > 0:
                 max_pdf_pages = mobile_pdf_pages
             if mobile_image_side > 0:
                 max_image_side = min(max_image_side, mobile_image_side)
+        if mobile_tiny:
+            max_pdf_pages = 6
+            max_image_side = min(max_image_side, 1600)
+        allow_slow_fallback = not (is_mobile or mobile_tiny)
 
         storage_env_on = os.getenv("SUPABASE_USE_STORAGE", "true").lower() not in {"false", "0", "no"}
         storage_available = False
@@ -166,7 +182,13 @@ def register_scan_routes(app):
                     file.stream.seek(pos or 0)
             except Exception:
                 size_bytes = None
-            if soft_upload_mb > 0 and size_bytes:
+            if is_mobile and size_bytes and size_bytes > mobile_max_bytes:
+                warnings.append(
+                    f"{file.filename} is large for mobile. Auto-optimizing for speed."
+                )
+                advanced_ocr = False
+                fast_ocr = True
+            elif soft_upload_mb > 0 and size_bytes:
                 if size_bytes > max_bytes:
                     warnings.append(
                         f"{file.filename} is very large. Auto-optimizing for speed."
@@ -326,6 +348,10 @@ def register_scan_routes(app):
                     continue
                 try:
                     base_dpi = 180 if advanced_ocr else 90 if fast_ocr else 150
+                    if is_mobile:
+                        base_dpi = min(base_dpi, mobile_pdf_dpi)
+                    if mobile_tiny:
+                        base_dpi = min(base_dpi, 70)
                     first_page = 1
                     last_page = None
                     total_pages = 0
@@ -399,7 +425,7 @@ def register_scan_routes(app):
                         else:
                             warnings.append(f"OCR failed on {file.filename}: {exc}")
                             continue
-                    if fast_ocr and not advanced_ocr:
+                    if allow_slow_fallback and fast_ocr and not advanced_ocr:
                         short_text = len((page_text or "").strip()) < 12
                         low_conf = avg_conf and avg_conf < 40
                         if short_text or low_conf:
@@ -412,7 +438,7 @@ def register_scan_routes(app):
                             except Exception:
                                 pass
                     _add_page(page_text, avg_conf=avg_conf, low_conf=low_conf, line_conf=line_conf)
-                    if not (page_text or "").strip() and fast_ocr and not advanced_ocr:
+                    if allow_slow_fallback and not (page_text or "").strip() and fast_ocr and not advanced_ocr:
                         try:
                             page_text, avg_conf, low_conf, line_conf = ocr_image(
                                 page, lang=lang, advanced=False, fast=False
@@ -499,7 +525,7 @@ def register_scan_routes(app):
                 else:
                     warnings.append(f"OCR failed on {file.filename}: {exc}")
                     continue
-            if fast_ocr and not advanced_ocr:
+            if allow_slow_fallback and fast_ocr and not advanced_ocr:
                 short_text = len((page_text or "").strip()) < 12
                 low_conf = avg_conf and avg_conf < 40
                 if short_text or low_conf:
@@ -512,7 +538,7 @@ def register_scan_routes(app):
                     except Exception:
                         pass
 
-            if not (page_text or "").strip() and fast_ocr and not advanced_ocr:
+            if allow_slow_fallback and not (page_text or "").strip() and fast_ocr and not advanced_ocr:
                 try:
                     page_text, avg_conf, low_conf, line_conf = ocr_image(
                         image, lang=lang, advanced=False, fast=False

@@ -244,7 +244,7 @@ def ocr_image(image, lang="eng", advanced=False, fast=False):
     if advanced:
         configs = ["--oem 3 --psm 6", "--oem 3 --psm 4"]
 
-    timeout_s = 8 if fast else 18 if not advanced else 24
+    timeout_s = 6 if fast else 18 if not advanced else 24
     collect_data = not fast
 
     for _, candidate in variants:

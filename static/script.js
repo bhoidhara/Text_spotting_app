@@ -267,6 +267,8 @@
   let autoAttempts = 0;
   const MAX_AUTO_ATTEMPTS = 2;
   let lastScanId = null;
+  let busyRetries = 0;
+  const MAX_BUSY_RETRIES = 1;
 
   const setStatus = (message) => {
     if (status) {
@@ -289,7 +291,28 @@
     } else if (source === "rear") {
       facingMode = { ideal: "environment" };
     }
-    return { video: { facingMode }, audio: false };
+    const videoConstraints = { facingMode };
+    if (isMobile) {
+      videoConstraints.width = { ideal: 1280, max: 1280 };
+      videoConstraints.height = { ideal: 720, max: 720 };
+    }
+    return { video: videoConstraints, audio: false };
+  };
+
+  const getFallbackConstraints = () => {
+    const source = sourceSelect ? sourceSelect.value : "auto";
+    let facingMode = { ideal: "environment" };
+    if (source === "front") {
+      facingMode = "user";
+    } else if (source === "rear") {
+      facingMode = { ideal: "environment" };
+    }
+    const videoConstraints = { facingMode };
+    if (isMobile) {
+      videoConstraints.width = { ideal: 640, max: 640 };
+      videoConstraints.height = { ideal: 480, max: 480 };
+    }
+    return { video: videoConstraints, audio: false };
   };
 
   const waitForVideoReady = () =>
@@ -321,11 +344,26 @@
       if (autoScan && isMobile) {
         autoAttempts = 0;
         setTimeout(() => {
-          captureAndScan(true, false);
+          captureAndScan(true, false, true);
         }, 700);
       }
     } catch (err) {
-      setStatus("Camera permission denied or unavailable.");
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(getFallbackConstraints());
+        video.srcObject = stream;
+        await video.play();
+        preview.classList.add("active");
+        setStatus(autoScan && isMobile ? "Camera ready (low res). Auto scan starting..." : "Camera ready (low res). Tap Start Camera to scan.");
+        startBtn.textContent = "Scan Now";
+        if (autoScan && isMobile) {
+          autoAttempts = 0;
+          setTimeout(() => {
+            captureAndScan(true, false, true);
+          }, 700);
+        }
+      } catch (fallbackErr) {
+        setStatus("Camera permission denied or unavailable.");
+      }
     }
   };
 
@@ -333,9 +371,12 @@
     enableCamera(true);
   });
 
-  const captureAndScan = async (autoMode = false, advanced = false) => {
+  const captureAndScan = async (autoMode = false, advanced = false, tiny = false) => {
     if (scanning) {
       return;
+    }
+    if (!autoMode) {
+      busyRetries = 0;
     }
 
     if (!stream) {
@@ -361,7 +402,7 @@
     const autoBoost = autoMode && autoAttempts > 0 && !advanced;
     let scale = 1;
     if (isMobile) {
-      const maxSide = advanced ? 1200 : autoBoost ? 1000 : 720;
+      const maxSide = tiny ? 600 : advanced ? 1200 : autoBoost ? 1000 : 720;
       scale = Math.min(1, maxSide / Math.max(rawWidth, rawHeight));
     }
     canvas.width = Math.round(rawWidth * scale);
@@ -369,7 +410,7 @@
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     try {
-      const quality = advanced ? 0.85 : autoBoost ? 0.75 : 0.6;
+      const quality = tiny ? 0.5 : advanced ? 0.85 : autoBoost ? 0.75 : 0.6;
       const blob = await new Promise((resolve) =>
         canvas.toBlob(resolve, "image/jpeg", quality)
       );
@@ -391,6 +432,9 @@
       if (isMobile) {
         formData.append("mobile", "on");
       }
+      if (tiny) {
+        formData.append("mobile_tiny", "on");
+      }
       if (advanced) {
         formData.append("advanced_ocr", "on");
       } else if (autoMode || isMobile) {
@@ -398,7 +442,8 @@
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      const timeoutMs = isMobile ? (tiny ? 60000 : 120000) : 60000;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       const response = await fetch("/api/scans", {
         method: "POST",
         body: formData,
@@ -417,6 +462,36 @@
         const errorMessage =
           payload.error || safeText || `OCR failed (HTTP ${response.status}). Try again.`;
         const noReadable = String(errorMessage).toLowerCase().includes("no readable");
+        const busy = String(errorMessage).toLowerCase().includes("busy");
+        const serverBusy =
+          busy ||
+          response.status === 413 ||
+          response.status === 429 ||
+          response.status === 503 ||
+          response.status === 504 ||
+          response.status >= 500;
+        if (isMobile && !tiny && serverBusy) {
+          scanning = false;
+          startBtn.disabled = false;
+          setStatus("Auto-optimizing for mobile...");
+          setTimeout(() => captureAndScan(autoMode, false, true), 700);
+          return;
+        }
+        if (isMobile && tiny && serverBusy && busyRetries < MAX_BUSY_RETRIES) {
+          busyRetries += 1;
+          scanning = false;
+          startBtn.disabled = false;
+          setStatus("Retrying mobile scan...");
+          setTimeout(() => captureAndScan(autoMode, false, true), 2000);
+          return;
+        }
+        if (isMobile && tiny && noReadable) {
+          scanning = false;
+          startBtn.disabled = false;
+          setStatus("Trying higher quality...");
+          setTimeout(() => captureAndScan(autoMode, false, false), 800);
+          return;
+        }
         if (autoMode && noReadable) {
           if (autoAttempts < MAX_AUTO_ATTEMPTS) {
             autoAttempts += 1;
@@ -465,6 +540,16 @@
       setStatus("Scan complete. Result shown below.");
     } catch (err) {
       if (err && err.name === "AbortError") {
+        if (isMobile) {
+          if (busyRetries < MAX_BUSY_RETRIES) {
+            busyRetries += 1;
+            setStatus("Retrying mobile scan...");
+            setTimeout(() => captureAndScan(false, false, true), 1200);
+            return;
+          }
+          setStatus("Server busy. Try again in a moment.");
+          return;
+        }
         setStatus("Server busy or slow. Please try again.");
       } else {
         setStatus(err && err.message ? err.message : "Scan failed.");
@@ -520,7 +605,7 @@
       return;
     }
     if (isMobile) {
-      captureAndScan(false, false);
+      captureAndScan(false, false, true);
       return;
     }
     captureAndScan(false, true);
@@ -549,6 +634,8 @@
   const openLink = document.getElementById("upload-open");
   const submitBtn = form.querySelector('button[type="submit"]');
   const fileInput = form.querySelector('input[type="file"][name="images"]');
+  let mobileBusyRetries = 0;
+  const MAX_MOBILE_BUSY_RETRIES = 1;
 
   const setStatus = (message) => {
     if (status) {
@@ -606,6 +693,7 @@
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    mobileBusyRetries = 0;
     if (submitBtn) {
       submitBtn.disabled = true;
     }
@@ -615,9 +703,9 @@
     setStatus("Uploading... OCR is running.");
 
     try {
-      const runUpload = async (useAdvanced) => {
+      const runUpload = async (useAdvanced, tiny = false) => {
         const formData = new FormData(form);
-        const forceFast = isMobile;
+        const forceFast = isMobile || tiny;
         const userAdvanced = formData.get("advanced_ocr") === "on";
         const advancedMode = !forceFast && (userAdvanced || useAdvanced);
         const selectedLang = formData.get("lang") || "eng";
@@ -632,8 +720,8 @@
         if (forceFast) {
           formData.delete("advanced_ocr");
         }
-        const maxSide = advancedMode ? 1800 : forceFast ? 800 : 1050;
-        const quality = advancedMode ? 0.85 : forceFast ? 0.6 : 0.7;
+        const maxSide = tiny ? 640 : advancedMode ? 1800 : forceFast ? 900 : 1200;
+        const quality = tiny ? 0.55 : advancedMode ? 0.85 : forceFast ? 0.65 : 0.72;
         const processed = await Promise.all(
           files.map((file) => compressImage(file, maxSide, quality))
         );
@@ -649,19 +737,21 @@
         if (isMobile) {
           formData.append("mobile", "on");
         }
-        if (isMobile) {
-          formData.append("mobile", "on");
+        if (tiny) {
+          formData.append("mobile_tiny", "on");
         }
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000);
-        const response = await fetch("/api/scans", {
-          method: "POST",
-          body: formData,
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        const rawText = await response.text();
+        try {
+          const controller = new AbortController();
+          const timeoutMs = isMobile ? (tiny ? 60000 : 120000) : 60000;
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+          const response = await fetch("/api/scans", {
+            method: "POST",
+            body: formData,
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          const rawText = await response.text();
         let payload = {};
         try {
           payload = rawText ? JSON.parse(rawText) : {};
@@ -674,15 +764,57 @@
           const errorMessage =
             payload.error || safeText || `OCR failed (HTTP ${response.status}). Try again.`;
           const noReadable = String(errorMessage).toLowerCase().includes("no readable");
-          return { ok: false, errorMessage, noReadable, userAdvanced };
+          const busy =
+            String(errorMessage).toLowerCase().includes("busy") ||
+            response.status === 413 ||
+            response.status === 429 ||
+            response.status === 503 ||
+            response.status === 504 ||
+            response.status >= 500;
+          return { ok: false, errorMessage, noReadable, userAdvanced, busy };
         }
         return { ok: true, payload, userAdvanced };
+        } catch (err) {
+          return {
+            ok: false,
+            errorMessage: err && err.message ? err.message : "Upload failed.",
+            aborted: err && err.name === "AbortError",
+          };
+        }
       };
 
-      let attempt = await runUpload(false);
+      const filesNow = fileInput && fileInput.files ? Array.from(fileInput.files) : [];
+      const totalSize = filesNow.reduce((sum, file) => sum + (file.size || 0), 0);
+      const preferTiny = isMobile;
+      if (preferTiny) {
+        setStatus("Optimizing for mobile...");
+      }
+      let attempt = await runUpload(false, preferTiny);
+      if (isMobile && preferTiny && !attempt.ok && attempt.noReadable) {
+        setStatus("Trying higher quality...");
+        attempt = await runUpload(false, false);
+      }
+      if (
+        isMobile &&
+        !attempt.ok &&
+        (attempt.aborted || attempt.busy)
+      ) {
+        setStatus("Auto-optimizing for mobile...");
+        attempt = await runUpload(false, true);
+      }
+      if (
+        isMobile &&
+        !attempt.ok &&
+        (attempt.aborted || attempt.busy) &&
+        mobileBusyRetries < MAX_MOBILE_BUSY_RETRIES
+      ) {
+        mobileBusyRetries += 1;
+        setStatus("Retrying mobile upload...");
+        attempt = await runUpload(false, true);
+      }
       if (!attempt.ok && attempt.noReadable && !attempt.userAdvanced) {
         setStatus("Trying enhanced scan...");
-        attempt = await runUpload(true);
+        attempt = await runUpload(true, false);
       }
       if (!attempt.ok) {
         throw new Error(attempt.errorMessage || "OCR failed.");
@@ -708,7 +840,11 @@
       setStatus(warnings.length ? `OCR complete. ${warnings[0]}` : "OCR complete.");
     } catch (err) {
       if (err && err.name === "AbortError") {
-        setStatus("Server busy or slow. Please try again.");
+        if (isMobile) {
+          setStatus("Auto-optimizing for mobile...");
+        } else {
+          setStatus("Server busy or slow. Please try again.");
+        }
       } else {
         setStatus(err && err.message ? err.message : "Upload failed.");
       }

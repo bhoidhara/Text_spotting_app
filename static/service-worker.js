@@ -1,4 +1,4 @@
-const CACHE_NAME = "visiontext-v52";
+const CACHE_NAME = "visiontext-v55";
 const STATIC_ASSETS = [
   "/",
   "/login",

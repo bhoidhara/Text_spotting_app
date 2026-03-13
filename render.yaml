@@ -50,3 +50,5 @@ services:
         value: "8"
       - key: MAX_IMAGE_SIDE_MOBILE
         value: "2400"
+      - key: MAX_UPLOAD_MB_MOBILE
+        value: "25"
