@@ -406,9 +406,52 @@ def detect_language(text):
 
 
 def extract_actions(text):
-    emails = list({match.group(0) for match in re.finditer(r"[\w\.-]+@[\w\.-]+\.[a-zA-Z]{2,}", text)})
-    urls = list({match.group(0) for match in re.finditer(r"https?://[^\s]+", text)})
-    phones = list({match.group(0) for match in re.finditer(r"\b\+?\d[\d\s\-]{8,}\d\b", text)})
+    def _unique(items):
+        seen = set()
+        output = []
+        for item in items:
+            if not item or item in seen:
+                continue
+            seen.add(item)
+            output.append(item)
+        return output
+
+    emails = _unique([match.group(0) for match in re.finditer(r"[\w\.-]+@[\w\.-]+\.[a-zA-Z]{2,}", text)])
+    urls = _unique([match.group(0) for match in re.finditer(r"https?://[^\s]+", text)])
+    phones = _unique([match.group(0) for match in re.finditer(r"\b\+?\d[\d\s\-]{8,}\d\b", text)])
+
+    website_matches = re.findall(
+        r"\b(?:www\.)?[a-zA-Z0-9-]+\.(?:com|in|org|net|io|co|gov|edu|me|app|dev|ai|xyz|info|biz|uk|us|ca|au|de|fr|jp|ru|cn|za|pk|bd|lk|sg|my|ae)\b",
+        text,
+    )
+    websites = []
+    for site in website_matches:
+        if site.startswith("http"):
+            websites.append(site)
+        elif site.startswith("www."):
+            websites.append(f"https://{site}")
+        else:
+            websites.append(f"https://{site}")
+    websites = _unique(websites)
+
+    instagram = _unique(
+        [f"https://instagram.com/{m}" for m in re.findall(r"(?:instagram\.com/|insta\s*[:\-]?\s*@?)([A-Za-z0-9._]+)", text, re.I)]
+    )
+    facebook = _unique(
+        [f"https://facebook.com/{m}" for m in re.findall(r"(?:facebook\.com/|fb\s*[:\-]?\s*@?)([A-Za-z0-9.\-]+)", text, re.I)]
+    )
+    twitter = _unique(
+        [f"https://x.com/{m}" for m in re.findall(r"(?:twitter\.com/|x\.com/|twitter\s*[:\-]?\s*@)([A-Za-z0-9_]{1,30})", text, re.I)]
+    )
+    linkedin = _unique(
+        [f"https://linkedin.com/{m[0]}/{m[1]}" for m in re.findall(r"linkedin\.com/(in|company)/([A-Za-z0-9-]+)", text, re.I)]
+    )
+    telegram = _unique(
+        [f"https://t.me/{m}" for m in re.findall(r"(?:t\.me/|telegram\s*[:\-]?\s*@?)([A-Za-z0-9_]{3,32})", text, re.I)]
+    )
+    whatsapp = _unique(
+        [f"https://wa.me/{m}" for m in re.findall(r"(?:wa\.me/|whatsapp\.com/send\?phone=|\bwhatsapp\b\s*[:\-]?\s*\+?)(\d{8,15})", text, re.I)]
+    )
 
     address_words = [
         "street",
@@ -434,10 +477,20 @@ def extract_actions(text):
         lower_line = line.lower()
         if any(word in lower_line for word in address_words) and re.search(r"\d", line):
             addresses.append(line.strip())
+    addresses = _unique(addresses)
+
+    # Merge website-only matches into urls for actions
+    urls = _unique(urls + websites)
 
     return {
         "emails": emails,
         "urls": urls,
         "phones": phones,
         "addresses": addresses,
+        "instagram": instagram,
+        "facebook": facebook,
+        "twitter": twitter,
+        "linkedin": linkedin,
+        "telegram": telegram,
+        "whatsapp": whatsapp,
     }

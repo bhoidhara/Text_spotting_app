@@ -229,6 +229,51 @@ def register_scan_routes(app):
                         pass
                 continue
 
+            if ext in {".pptx"}:
+                try:
+                    from pptx import Presentation
+                except Exception as exc:
+                    warnings.append(f"PPTX support not installed: {exc}")
+                    continue
+                try:
+                    deck = Presentation(file_path)
+                    slides_text = []
+                    for slide in deck.slides:
+                        parts = []
+                        for shape in slide.shapes:
+                            text = getattr(shape, "text", "") or ""
+                            if text.strip():
+                                parts.append(text.strip())
+                        slides_text.append("\n".join(parts).strip())
+                except Exception as exc:
+                    warnings.append(f"Failed to read {file.filename}: {exc}")
+                    slides_text = []
+                if any(text.strip() for text in slides_text):
+                    warnings.append(f"Imported text from {file.filename} (no OCR).")
+                    for slide_text in slides_text:
+                        if slide_text.strip():
+                            line_conf = [
+                                {"text": line.strip(), "conf": 100.0}
+                                for line in slide_text.splitlines()
+                                if line.strip()
+                            ]
+                            _add_page(slide_text, avg_conf=100.0, low_conf=[], line_conf=line_conf)
+                else:
+                    warnings.append(f"Empty PPTX file: {file.filename}")
+
+                if privacy_mode and _supabase_only():
+                    try:
+                        os.remove(file_path)
+                    except Exception:
+                        pass
+                    return None, warnings, "Privacy mode requires local storage, but local is disabled."
+                if privacy_mode or not store_local:
+                    try:
+                        os.remove(file_path)
+                    except Exception:
+                        pass
+                continue
+
             if ext in {".pdf"}:
                 try:
                     from pdf2image import convert_from_path

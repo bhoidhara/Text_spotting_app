@@ -16,6 +16,7 @@ ALLOWED_EXT_DEFAULT = {
     ".pdf",
     ".txt",
     ".docx",
+    ".pptx",
     ".csv",
     ".rtf",
     ".json",

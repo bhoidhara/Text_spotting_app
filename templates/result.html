@@ -212,12 +212,42 @@
             <a class="button ghost" href="{{ url }}" target="_blank" rel="noopener">Open {{ url }}</a>
           {% endfor %}
         {% endif %}
+        {% if actions.instagram %}
+          {% for url in actions.instagram %}
+            <a class="button ghost" href="{{ url }}" target="_blank" rel="noopener">Instagram</a>
+          {% endfor %}
+        {% endif %}
+        {% if actions.facebook %}
+          {% for url in actions.facebook %}
+            <a class="button ghost" href="{{ url }}" target="_blank" rel="noopener">Facebook</a>
+          {% endfor %}
+        {% endif %}
+        {% if actions.twitter %}
+          {% for url in actions.twitter %}
+            <a class="button ghost" href="{{ url }}" target="_blank" rel="noopener">X / Twitter</a>
+          {% endfor %}
+        {% endif %}
+        {% if actions.linkedin %}
+          {% for url in actions.linkedin %}
+            <a class="button ghost" href="{{ url }}" target="_blank" rel="noopener">LinkedIn</a>
+          {% endfor %}
+        {% endif %}
+        {% if actions.telegram %}
+          {% for url in actions.telegram %}
+            <a class="button ghost" href="{{ url }}" target="_blank" rel="noopener">Telegram</a>
+          {% endfor %}
+        {% endif %}
+        {% if actions.whatsapp %}
+          {% for url in actions.whatsapp %}
+            <a class="button ghost" href="{{ url }}" target="_blank" rel="noopener">WhatsApp</a>
+          {% endfor %}
+        {% endif %}
         {% if actions.addresses %}
           {% for address in actions.addresses %}
             <a class="button ghost" href="https://maps.google.com/?q={{ address }}" target="_blank" rel="noopener">Map {{ address }}</a>
           {% endfor %}
         {% endif %}
-        {% if not actions.emails and not actions.phones and not actions.urls and not actions.addresses %}
+        {% if not actions.emails and not actions.phones and not actions.urls and not actions.addresses and not actions.instagram and not actions.facebook and not actions.twitter and not actions.linkedin and not actions.telegram and not actions.whatsapp %}
           <p class="muted">No actionable items detected yet.</p>
         {% endif %}
       </div>
