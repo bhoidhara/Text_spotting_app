@@ -28,6 +28,21 @@ except Exception:
     pytesseract = None
 
 try:
+    import easyocr
+except Exception:
+    easyocr = None
+
+try:
+    import cv2
+except Exception:
+    cv2 = None
+
+try:
+    import numpy as np
+except Exception:
+    np = None
+
+try:
     from langdetect import detect as detect_lang
 except Exception:
     detect_lang = None
@@ -76,6 +91,73 @@ def tesseract_status():
         status["error"] = str(exc)
 
     return status
+
+
+_EASY_READERS = {}
+
+
+def _get_easy_reader(lang):
+    if easyocr is None:
+        return None
+    lang_list = [token.strip() for token in str(lang or "eng").split("+") if token.strip()]
+    lang_key = tuple(lang_list)
+    reader = _EASY_READERS.get(lang_key)
+    if reader:
+        return reader
+    try:
+        reader = easyocr.Reader(lang_list, gpu=False, download_enabled=True, detector=True, recognizer=True)
+        _EASY_READERS[lang_key] = reader
+        return reader
+    except Exception:
+        return None
+
+
+def _pil_to_cv(image):
+    if np is None:
+        return None
+    try:
+        rgb = image.convert("RGB")
+        array = np.array(rgb)
+        if cv2 is None:
+            return array
+        return cv2.cvtColor(array, cv2.COLOR_RGB2BGR)
+    except Exception:
+        return None
+
+
+def _easyocr_image(image, lang="eng", max_side=1600):
+    reader = _get_easy_reader(lang)
+    if reader is None:
+        raise RuntimeError("EasyOCR not available")
+    try:
+        if ImageOps and hasattr(ImageOps, "exif_transpose"):
+            image = ImageOps.exif_transpose(image)
+    except Exception:
+        pass
+
+    try:
+        width, height = image.size
+        scale = min(1.0, max_side / max(width, height))
+        if scale < 1.0:
+            new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
+            image = image.resize(new_size, resample=getattr(image, "LANCZOS", 1))
+    except Exception:
+        pass
+
+    cv_img = _pil_to_cv(image)
+    if cv_img is None:
+        # fallback: use PIL image directly via numpy if available
+        if np is None:
+            raise RuntimeError("EasyOCR needs numpy")
+        cv_img = np.array(image.convert("RGB"))
+    results = reader.readtext(cv_img)
+    texts = []
+    for _, txt, prob in results:
+        if prob is None or prob < 0.1:
+            continue
+        texts.append(txt)
+    joined = " ".join(texts).strip()
+    return joined
 
 
 def preprocess_image(image):
@@ -231,8 +313,20 @@ def _run_tesseract(image, lang, config, timeout_s=20, collect_data=True):
 
 
 def ocr_image(image, lang="eng", advanced=False, fast=False, rescue=False):
+    use_easy_first = (
+        os.getenv("USE_EASYOCR_FIRST", "1").lower() not in {"0", "false", "no"} or fast
+    )
+    if easyocr is not None and use_easy_first:
+        try:
+            easy_text = _easyocr_image(image, lang=lang, max_side=1500 if fast else 1800)
+            if easy_text.strip():
+                return easy_text, 0.0, [], []
+        except Exception:
+            pass
+
     status = tesseract_status()
     if not status.get("pytesseract_ok"):
+        # If tesseract is unavailable but easyocr worked earlier, we would have returned.
         raise RuntimeError("pytesseract is not installed.")
     if status.get("error"):
         raise RuntimeError(f"Tesseract is not available: {status['error']}")
