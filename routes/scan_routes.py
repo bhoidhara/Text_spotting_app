@@ -59,6 +59,27 @@ def register_scan_routes(app):
             return ["eng+hin+guj"]
         return [f"{lang_code}+eng", f"eng+{lang_code}"]
 
+    def _segment_image(image, parts=3):
+        """Split image vertically into equal parts to improve mobile OCR on tall screenshots."""
+        segments = []
+        try:
+            width, height = image.size
+            if not width or not height or parts < 2:
+                return [image]
+            slice_height = max(1, height // parts)
+            for idx in range(parts):
+                top = idx * slice_height
+                bottom = height if idx == parts - 1 else (idx + 1) * slice_height
+                box = (0, top, width, bottom)
+                try:
+                    segment = image.crop(box)
+                    segments.append(segment)
+                except Exception:
+                    continue
+        except Exception:
+            return [image]
+        return segments or [image]
+
     def _build_crop_box():
         crop_x = request.form.get("crop_x")
         crop_y = request.form.get("crop_y")
@@ -139,12 +160,15 @@ def register_scan_routes(app):
         max_image_side = int(current_app.config.get("MAX_IMAGE_SIDE", 3200))
         mobile_pdf_pages = int(os.getenv("MAX_PDF_PAGES_MOBILE", "8"))
         mobile_image_side = int(os.getenv("MAX_IMAGE_SIDE_MOBILE", "2400"))
+        mobile_image_side_hard = int(os.getenv("MAX_IMAGE_SIDE_MOBILE_HARD", "1700"))
         mobile_pdf_dpi = int(os.getenv("MAX_PDF_DPI_MOBILE", "80"))
         if is_mobile:
             if mobile_pdf_pages > 0:
                 max_pdf_pages = mobile_pdf_pages
             if mobile_image_side > 0:
                 max_image_side = min(max_image_side, mobile_image_side)
+            if mobile_image_side_hard > 0:
+                max_image_side = min(max_image_side, mobile_image_side_hard)
         if mobile_tiny:
             max_pdf_pages = 6
             max_image_side = min(max_image_side, 1600)
@@ -569,88 +593,90 @@ def register_scan_routes(app):
                 except Exception:
                     pass
 
-            try:
-                page_text, avg_conf, low_conf, line_conf = ocr_image(
-                    image, lang=lang, advanced=advanced_ocr, fast=fast_ocr and not advanced_ocr
-                )
-            except Exception as exc:
-                if not advanced_ocr:
-                    try:
-                        page_text, avg_conf, low_conf, line_conf = ocr_image(
-                            image, lang=lang, advanced=False, fast=False
-                        )
-                        warnings.append(f"Fallback OCR used for {file.filename}.")
-                    except Exception as exc2:
-                        if not fast_ocr:
-                            try:
-                                page_text, avg_conf, low_conf, line_conf = ocr_image(
-                                    image, lang=lang, advanced=True, fast=False
-                                )
-                                warnings.append(f"Fallback OCR used for {file.filename}.")
-                            except Exception as exc3:
-                                warnings.append(f"OCR failed on {file.filename}: {exc3}")
+            segments = _segment_image(image, parts=3)
+            for idx, segment in enumerate(segments, start=1):
+                try:
+                    page_text, avg_conf, low_conf, line_conf = ocr_image(
+                        segment, lang=lang, advanced=advanced_ocr, fast=fast_ocr and not advanced_ocr
+                    )
+                except Exception as exc:
+                    if not advanced_ocr:
+                        try:
+                            page_text, avg_conf, low_conf, line_conf = ocr_image(
+                                segment, lang=lang, advanced=False, fast=False
+                            )
+                            warnings.append(f"Fallback OCR used for {file.filename} (part {idx}).")
+                        except Exception as exc2:
+                            if not fast_ocr:
+                                try:
+                                    page_text, avg_conf, low_conf, line_conf = ocr_image(
+                                        segment, lang=lang, advanced=True, fast=False
+                                    )
+                                    warnings.append(f"Fallback OCR used for {file.filename} (part {idx}).")
+                                except Exception as exc3:
+                                    warnings.append(f"OCR failed on {file.filename} part {idx}: {exc3}")
+                                    continue
+                            else:
+                                warnings.append(f"OCR failed on {file.filename} part {idx}: {exc2}")
                                 continue
-                        else:
-                            warnings.append(f"OCR failed on {file.filename}: {exc2}")
-                            continue
-                else:
-                    warnings.append(f"OCR failed on {file.filename}: {exc}")
-                    continue
-            if allow_slow_fallback and fast_ocr and not advanced_ocr:
-                short_text = len((page_text or "").strip()) < 12
-                low_conf = avg_conf and avg_conf < 40
-                if short_text or low_conf:
+                    else:
+                        warnings.append(f"OCR failed on {file.filename} part {idx}: {exc}")
+                        continue
+                if allow_slow_fallback and fast_ocr and not advanced_ocr:
+                    short_text = len((page_text or "").strip()) < 12
+                    low_conf = avg_conf and avg_conf < 40
+                    if short_text or low_conf:
+                        try:
+                            page_text, avg_conf, low_conf, line_conf = ocr_image(
+                                segment, lang=lang, advanced=False, fast=False
+                            )
+                            if (page_text or "").strip():
+                                warnings.append(f"Fallback OCR used for {file.filename} (part {idx}).")
+                        except Exception:
+                            pass
+
+                if allow_slow_fallback and not (page_text or "").strip() and fast_ocr and not advanced_ocr:
                     try:
                         page_text, avg_conf, low_conf, line_conf = ocr_image(
-                            image, lang=lang, advanced=False, fast=False
+                            segment, lang=lang, advanced=False, fast=False
                         )
                         if (page_text or "").strip():
-                            warnings.append(f"Fallback OCR used for {file.filename}.")
+                            warnings.append(f"Fallback OCR used for {file.filename} (part {idx}).")
+                    except Exception:
+                        pass
+                if is_mobile and not (page_text or "").strip() and fast_ocr and not advanced_ocr:
+                    try:
+                        page_text, avg_conf, low_conf, line_conf = ocr_image(
+                            segment, lang=lang, advanced=False, fast=False, rescue=True
+                        )
+                        if (page_text or "").strip():
+                            warnings.append(f"Mobile OCR rescue used for {file.filename} (part {idx}).")
+                    except Exception:
+                        pass
+                if is_mobile and not (page_text or "").strip() and fast_ocr and not advanced_ocr:
+                    for rescue_lang in _mobile_rescue_langs(lang):
+                        try:
+                            page_text, avg_conf, low_conf, line_conf = ocr_image(
+                                segment, lang=rescue_lang, advanced=False, fast=False, rescue=True
+                            )
+                            if (page_text or "").strip():
+                                warnings.append(
+                                    f"Mobile OCR rescue used ({rescue_lang}) for {file.filename} (part {idx})."
+                                )
+                                break
+                        except Exception:
+                            continue
+                if not (page_text or "").strip() and not advanced_ocr and not fast_ocr:
+                    try:
+                        page_text, avg_conf, low_conf, line_conf = ocr_image(
+                            segment, lang=lang, advanced=True, fast=False
+                        )
+                        if (page_text or "").strip():
+                            warnings.append(f"Fallback OCR used for {file.filename} (part {idx}).")
                     except Exception:
                         pass
 
-            if allow_slow_fallback and not (page_text or "").strip() and fast_ocr and not advanced_ocr:
-                try:
-                    page_text, avg_conf, low_conf, line_conf = ocr_image(
-                        image, lang=lang, advanced=False, fast=False
-                    )
-                    if (page_text or "").strip():
-                        warnings.append(f"Fallback OCR used for {file.filename}.")
-                except Exception:
-                    pass
-            if is_mobile and not (page_text or "").strip() and fast_ocr and not advanced_ocr:
-                try:
-                    page_text, avg_conf, low_conf, line_conf = ocr_image(
-                        image, lang=lang, advanced=False, fast=False, rescue=True
-                    )
-                    if (page_text or "").strip():
-                        warnings.append(f"Mobile OCR rescue used for {file.filename}.")
-                except Exception:
-                    pass
-            if is_mobile and not (page_text or "").strip() and fast_ocr and not advanced_ocr:
-                for rescue_lang in _mobile_rescue_langs(lang):
-                    try:
-                        page_text, avg_conf, low_conf, line_conf = ocr_image(
-                            image, lang=rescue_lang, advanced=False, fast=False, rescue=True
-                        )
-                        if (page_text or "").strip():
-                            warnings.append(
-                                f"Mobile OCR rescue used ({rescue_lang}) for {file.filename}."
-                            )
-                            break
-                    except Exception:
-                        continue
-            if not (page_text or "").strip() and not advanced_ocr and not fast_ocr:
-                try:
-                    page_text, avg_conf, low_conf, line_conf = ocr_image(
-                        image, lang=lang, advanced=True, fast=False
-                    )
-                    if (page_text or "").strip():
-                        warnings.append(f"Fallback OCR used for {file.filename}.")
-                except Exception:
-                    pass
-
-            _add_page(page_text, avg_conf=avg_conf, low_conf=low_conf, line_conf=line_conf)
+                _add_page(page_text, avg_conf=avg_conf, low_conf=low_conf, line_conf=line_conf)
 
             if ext in image_exts:
                 if skip_storage:
