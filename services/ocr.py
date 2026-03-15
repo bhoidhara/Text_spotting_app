@@ -325,9 +325,8 @@ def _run_tesseract(image, lang, config, timeout_s=20, collect_data=True):
 
 
 def ocr_image(image, lang="eng", advanced=False, fast=False, rescue=False):
-    use_easy_first = (
-        os.getenv("USE_EASYOCR_FIRST", "1").lower() not in {"0", "false", "no"} or fast
-    )
+    env_easy = os.getenv("USE_EASYOCR_FIRST", "1").lower() not in {"0", "false", "no"}
+    use_easy_first = env_easy
     if easyocr is not None and use_easy_first:
         try:
             easy_text = _easyocr_image(image, lang=lang, max_side=1500 if fast else 1800)

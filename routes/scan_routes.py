@@ -158,10 +158,10 @@ def register_scan_routes(app):
         mobile_max_bytes = mobile_max_upload_mb * 1024 * 1024
         max_pdf_pages = int(current_app.config.get("MAX_PDF_PAGES", 0))
         max_image_side = int(current_app.config.get("MAX_IMAGE_SIDE", 3200))
-        mobile_pdf_pages = int(os.getenv("MAX_PDF_PAGES_MOBILE", "8"))
-        mobile_image_side = int(os.getenv("MAX_IMAGE_SIDE_MOBILE", "2400"))
-        mobile_image_side_hard = int(os.getenv("MAX_IMAGE_SIDE_MOBILE_HARD", "1700"))
-        mobile_pdf_dpi = int(os.getenv("MAX_PDF_DPI_MOBILE", "80"))
+        mobile_pdf_pages = int(os.getenv("MAX_PDF_PAGES_MOBILE", "5"))
+        mobile_image_side = int(os.getenv("MAX_IMAGE_SIDE_MOBILE", "2000"))
+        mobile_image_side_hard = int(os.getenv("MAX_IMAGE_SIDE_MOBILE_HARD", "1200"))
+        mobile_pdf_dpi = int(os.getenv("MAX_PDF_DPI_MOBILE", "72"))
         if is_mobile:
             if mobile_pdf_pages > 0:
                 max_pdf_pages = mobile_pdf_pages
@@ -170,8 +170,8 @@ def register_scan_routes(app):
             if mobile_image_side_hard > 0:
                 max_image_side = min(max_image_side, mobile_image_side_hard)
         if mobile_tiny:
-            max_pdf_pages = 6
-            max_image_side = min(max_image_side, 1600)
+            max_pdf_pages = 4
+            max_image_side = min(max_image_side, 1100)
         allow_slow_fallback = not (is_mobile or mobile_tiny)
 
         storage_env_on = os.getenv("SUPABASE_USE_STORAGE", "true").lower() not in {"false", "0", "no"}
