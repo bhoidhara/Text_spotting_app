@@ -21,8 +21,10 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 COPY requirements.txt /app/requirements.txt
 RUN python -m pip install --upgrade pip setuptools wheel \
-    && python -m pip install -r /app/requirements.txt
+    && python -m pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.1.2 torchvision==0.16.2 \
+    && python -m pip install --no-cache-dir -r /app/requirements.txt
 
 COPY . /app
 
-CMD ["gunicorn", "app:app"]
+# Single lightweight worker to avoid OOM on free tier; threads for a bit of concurrency.
+CMD ["sh", "-c", "gunicorn -w 1 -k gthread --threads 2 --timeout 90 --bind 0.0.0.0:${PORT:-10000} app:app"]
