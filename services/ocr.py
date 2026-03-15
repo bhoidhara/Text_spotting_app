@@ -1,5 +1,7 @@
 import os
 import re
+import io
+import base64
 
 from utils.helpers import safe_int
 
@@ -26,6 +28,11 @@ try:
     import pytesseract
 except Exception:
     pytesseract = None
+
+try:
+    import requests
+except Exception:
+    requests = None
 
 easyocr = None
 cv2 = None
@@ -170,6 +177,67 @@ def _easyocr_image(image, lang="eng", max_side=1600):
         texts.append(txt)
     joined = " ".join(texts).strip()
     return joined
+
+
+def _ocrspace_image(image, lang="eng", api_key=None, overlay=False, timeout=18):
+    """Fallback to OCR.space API when local OCR fails."""
+    if requests is None:
+        raise RuntimeError("requests is not installed")
+    key = api_key or os.getenv("OCRSPACE_API_KEY")
+    if not key:
+        raise RuntimeError("OCR.space API key missing")
+
+    # Resize and compress to keep under ~1.5MB
+    buffer = io.BytesIO()
+    img = image.convert("RGB")
+    quality = 85
+    for _ in range(3):
+        buffer.seek(0)
+        buffer.truncate(0)
+        img.save(buffer, format="JPEG", quality=quality, optimize=True)
+        size = buffer.tell()
+        if size <= 1_500_000:
+            break
+        quality = max(50, quality - 15)
+    buffer.seek(0)
+
+    files = {"file": ("image.jpg", buffer, "image/jpeg")}
+    data = {
+        "language": lang or "eng",
+        "isOverlayRequired": "true" if overlay else "false",
+        "OCREngine": 2,  # better quality engine
+    }
+    headers = {"apikey": key}
+    resp = requests.post(
+        "https://api.ocr.space/parse/image",
+        files=files,
+        data=data,
+        headers=headers,
+        timeout=timeout,
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    if not payload or payload.get("IsErroredOnProcessing"):
+        raise RuntimeError(payload.get("ErrorMessage") or "OCR.space failed")
+    parsed = payload.get("ParsedResults") or []
+    text_chunks = []
+    for item in parsed:
+        txt = item.get("ParsedText") or ""
+        if txt:
+            text_chunks.append(txt.strip())
+    text = "\n".join(text_chunks).strip()
+    if not text:
+        raise RuntimeError("OCR.space returned empty text")
+    return text
+
+
+def _ocrspace_enabled():
+    if os.getenv("USE_OCRSPACE", "1").lower() in {"0", "false", "no"}:
+        return False, None
+    key = os.getenv("OCRSPACE_API_KEY")
+    if not key:
+        return False, None
+    return True, key
 
 
 def preprocess_image(image):
@@ -336,11 +404,16 @@ def ocr_image(image, lang="eng", advanced=False, fast=False, rescue=False):
             pass
 
     status = tesseract_status()
-    if not status.get("pytesseract_ok"):
-        # If tesseract is unavailable but easyocr worked earlier, we would have returned.
-        raise RuntimeError("pytesseract is not installed.")
-    if status.get("error"):
-        raise RuntimeError(f"Tesseract is not available: {status['error']}")
+    if not status.get("pytesseract_ok") or status.get("error"):
+        enabled, api_key = _ocrspace_enabled()
+        if enabled:
+            try:
+                text = _ocrspace_image(image, lang=lang, api_key=api_key)
+                return text, 0.0, [], []
+            except Exception:
+                pass
+        err = status.get("error") or "pytesseract is not installed."
+        raise RuntimeError(err)
 
     if ImageOps and hasattr(ImageOps, "exif_transpose"):
         try:
@@ -428,7 +501,15 @@ def ocr_image(image, lang="eng", advanced=False, fast=False, rescue=False):
                     "line_conf": line_confidence,
                 }
 
-    if best["score"] < 0:
+    if best["score"] < 0 or not (best["text"] or "").strip():
+        enabled, api_key = _ocrspace_enabled()
+        if enabled:
+            try:
+                api_text = _ocrspace_image(image, lang=lang, api_key=api_key)
+                if api_text.strip():
+                    return api_text, 0.0, [], []
+            except Exception:
+                pass
         raise RuntimeError(f"OCR failed: {last_exc}") if last_exc else RuntimeError("OCR failed.")
 
     return best["text"], best["avg_conf"], best["low_conf"], best["line_conf"]
