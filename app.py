@@ -83,4 +83,5 @@ def handle_file_too_large(error):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", "10000"))
+    app.run(host="0.0.0.0", port=port, debug=os.environ.get("FLASK_DEBUG", "0") not in {"0", "false", "False"})
