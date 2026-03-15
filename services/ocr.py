@@ -27,20 +27,9 @@ try:
 except Exception:
     pytesseract = None
 
-try:
-    import easyocr
-except Exception:
-    easyocr = None
-
-try:
-    import cv2
-except Exception:
-    cv2 = None
-
-try:
-    import numpy as np
-except Exception:
-    np = None
+easyocr = None
+cv2 = None
+np = None
 
 try:
     from langdetect import detect as detect_lang
@@ -96,8 +85,31 @@ def tesseract_status():
 _EASY_READERS = {}
 
 
-def _get_easy_reader(lang):
+def _ensure_easyocr():
+    global easyocr, cv2, np
     if easyocr is None:
+        try:
+            import easyocr as _easyocr  # type: ignore
+            easyocr = _easyocr
+        except Exception:
+            return False
+    if cv2 is None:
+        try:
+            import cv2 as _cv2  # type: ignore
+            cv2 = _cv2
+        except Exception:
+            pass
+    if np is None:
+        try:
+            import numpy as _np  # type: ignore
+            np = _np
+        except Exception:
+            pass
+    return True
+
+
+def _get_easy_reader(lang):
+    if not _ensure_easyocr():
         return None
     lang_list = [token.strip() for token in str(lang or "eng").split("+") if token.strip()]
     lang_key = tuple(lang_list)
@@ -113,7 +125,7 @@ def _get_easy_reader(lang):
 
 
 def _pil_to_cv(image):
-    if np is None:
+    if not _ensure_easyocr() or np is None:
         return None
     try:
         rgb = image.convert("RGB")

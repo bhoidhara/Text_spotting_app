@@ -27,4 +27,4 @@ RUN python -m pip install --upgrade pip setuptools wheel \
 COPY . /app
 
 # Single lightweight worker to avoid OOM on free tier; threads for a bit of concurrency.
-CMD ["sh", "-c", "gunicorn -w 1 -k gthread --threads 2 --timeout 90 --bind 0.0.0.0:${PORT:-10000} app:app"]
+CMD ["sh", "-c", "gunicorn -w 1 -k gthread --threads 1 --timeout 60 --bind 0.0.0.0:${PORT:-10000} app:app"]
